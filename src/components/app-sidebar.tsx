@@ -40,19 +40,18 @@ const items = [
   },
   {
     title: "Batches",
-    url: "#",
+    url: "/batches",
     icon: Layers,
-    isActive: false,
   },
   {
     title: "Riders",
-    url: "#",
+    url: "/riders",
     icon: Bike,
     isActive: false,
   },
   {
     title: "Sellers",
-    url: "#",
+    url: "/sellers",
     icon: Store,
     isActive: false,
   },
@@ -64,7 +63,7 @@ const items = [
   },
   {
     title: "Users",
-    url: "#",
+    url: "/users",
     icon: Users,
     isActive: false,
   },
