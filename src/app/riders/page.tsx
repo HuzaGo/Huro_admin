@@ -118,10 +118,10 @@ export default function RidersPage() {
                         onClick={() => setSelectedRiderId(rider.id)}
                         className={`cursor-pointer transition-colors border-b border-slate-100 relative ${isActiveRow ? 'bg-white hover:bg-slate-50' : 'bg-white hover:bg-slate-50'}`}
                       >
-                        {isActiveRow && (
-                          <div className="absolute left-0 top-0 bottom-[-1px] w-[3px] bg-blue-500 z-10" />
-                        )}
-                        <TableCell className="py-5 pl-6">
+                        <TableCell className="py-5 pl-6 relative">
+                          {isActiveRow && (
+                            <div className="absolute left-0 top-0 bottom-[-1px] w-[3px] bg-blue-500 z-10" />
+                          )}
                           <div className="flex flex-col leading-tight">
                             <span className="font-bold text-slate-900 text-[15px]">{rider.firstName}</span>
                             <span className="font-bold text-slate-900 text-[15px]">{rider.lastName}</span>

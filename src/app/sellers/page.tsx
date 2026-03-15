@@ -109,7 +109,10 @@ export default function SellersPage() {
                   >
                     {/* Active row indicator styled perfectly for light mode */}
                     
-                    <TableCell className="py-4">
+                    <TableCell className="py-4 relative">
+                      {selectedSellerId === seller.id && (
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />
+                      )}
                       <div className="font-medium text-gray-900">{seller.name}</div>
                     </TableCell>
                     <TableCell>
