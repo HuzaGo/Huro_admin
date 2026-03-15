@@ -74,7 +74,7 @@ export default function RidersPage() {
   const isSelected = selectedRider !== undefined;
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1400px] mx-auto">
+    <div className="flex flex-col gap-6 max-w-350 mx-auto">
       
       {/* Top Search Bar is part of the layout, we handle the page specific header below */}
 
@@ -120,7 +120,7 @@ export default function RidersPage() {
                       >
                         <TableCell className="py-5 pl-6 relative">
                           {isActiveRow && (
-                            <div className="absolute left-0 top-0 bottom-[-1px] w-[3px] bg-blue-500 z-10" />
+                            <div className="absolute left-0 top-0 -bottom-px w-0.75 bg-blue-500 z-10" />
                           )}
                           <div className="flex flex-col leading-tight">
                             <span className="font-bold text-slate-900 text-[15px]">{rider.firstName}</span>
@@ -159,7 +159,7 @@ export default function RidersPage() {
 
         {/* Right Side: Rider Details Sidebar */}
         {isSelected && selectedRider && (
-          <div className="w-full xl:w-[420px] flex-shrink-0 animate-in slide-in-from-right-8 fade-in duration-300">
+          <div className="w-full xl:w-105 shrink-0 animate-in slide-in-from-right-8 fade-in duration-300">
             <Card className="shadow-sm border-gray-200 sticky top-6 rounded-xl overflow-hidden bg-white">
               
               {/* Header */}

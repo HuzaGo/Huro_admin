@@ -144,7 +144,7 @@ export default function SellersPage() {
 
       {/* Details Side Panel - Slides in directly from the side without dark mode styling */}
       {selectedSellerId && selectedSeller && (
-        <div className="w-[400px] border-l border-gray-200 bg-white shadow-xl flex flex-col animate-in slide-in-from-right-8 fade-in duration-300 z-10">
+        <div className="w-100 border-l border-gray-200 bg-white shadow-xl flex flex-col animate-in slide-in-from-right-8 fade-in duration-300 z-10">
           {/* Header */}
           <div className="flex items-center justify-between p-5 border-b border-gray-100">
             <h2 className="text-lg font-semibold text-gray-900">Seller Details</h2>
