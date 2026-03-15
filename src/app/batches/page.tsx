@@ -43,7 +43,7 @@ export default function BatchesPage() {
   const isBatchSelected = selectedBatch !== null;
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1400px] mx-auto">
+    <div className="flex flex-col gap-6 max-w-350 mx-auto">
       
       {/* Top Navigation & Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-px">
@@ -96,7 +96,7 @@ export default function BatchesPage() {
                       </TableCell>
                       <TableCell className="text-slate-700 font-medium py-5 text-[14px]">{batch.rider}</TableCell>
                       <TableCell className="text-slate-500 py-5 text-[14px]">
-                        <div className="max-w-[100px] leading-tight">
+                        <div className="max-w-25 leading-tight">
                           {batch.location}
                         </div>
                       </TableCell>
@@ -120,7 +120,7 @@ export default function BatchesPage() {
 
         {/* Right Side: Batch Details Sidebar */}
         {isBatchSelected && (
-          <div className="w-full xl:w-[400px] flex-shrink-0 animate-in slide-in-from-right-8 fade-in duration-300">
+          <div className="w-full xl:w-105 shrink-0 animate-in slide-in-from-right-8 fade-in duration-300">
             <Card className="shadow-sm border-gray-100 sticky top-6 rounded-xl overflow-hidden">
               <CardHeader className="pb-4 pt-6 px-6 relative border-b border-slate-50">
                 <CardTitle className="text-[20px] font-bold text-slate-900 mb-1">Batch {selectedBatch}</CardTitle>
@@ -160,11 +160,11 @@ export default function BatchesPage() {
                 </h4>
                 
                 {/* Timeline */}
-                <div className="relative pl-3 space-y-7 before:absolute before:inset-y-2 before:left-[27px] before:w-[2px] before:bg-slate-200">
+                <div className="relative pl-3 space-y-7 before:absolute before:inset-y-2 before:left-6.75 before:w-0.5 before:bg-slate-200">
                   
                   {/* Stop 1 */}
                   <div className="relative z-10 flex gap-4 items-start">
-                    <div className="w-[30px] h-[30px] rounded-full bg-white border-2 border-blue-500 text-blue-600 flex items-center justify-center text-[12px] font-bold flex-shrink-0 mt-0.5">
+                    <div className="w-7.5 h-7.5 rounded-full bg-white border-2 border-blue-500 text-blue-600 flex items-center justify-center text-[12px] font-bold shrink-0 mt-0.5">
                       01
                     </div>
                     <div className="flex flex-col pt-1 pl-1">
@@ -175,7 +175,7 @@ export default function BatchesPage() {
 
                   {/* Stop 2 */}
                   <div className="relative z-10 flex gap-4 items-start">
-                    <div className="w-[30px] h-[30px] rounded-full bg-white border-2 border-slate-700 text-slate-700 flex items-center justify-center text-[12px] font-bold flex-shrink-0 mt-0.5">
+                    <div className="w-7.5 h-7.5 rounded-full bg-white border-2 border-slate-700 text-slate-700 flex items-center justify-center text-[12px] font-bold shrink-0 mt-0.5">
                       02
                     </div>
                     <div className="flex flex-col pt-1 pl-1">
@@ -186,7 +186,7 @@ export default function BatchesPage() {
 
                   {/* Stop 3 */}
                   <div className="relative z-10 flex gap-4 items-start">
-                    <div className="w-[30px] h-[30px] rounded-full bg-white border-2 border-slate-700 text-slate-700 flex items-center justify-center text-[12px] font-bold flex-shrink-0 mt-0.5">
+                    <div className="w-7.5 h-7.5 rounded-full bg-white border-2 border-slate-700 text-slate-700 flex items-center justify-center text-[12px] font-bold shrink-0 mt-0.5">
                       03
                     </div>
                     <div className="flex flex-col pt-1 pl-1">
@@ -197,7 +197,7 @@ export default function BatchesPage() {
 
                   {/* Stop 4 */}
                   <div className="relative z-10 flex gap-4 items-start">
-                    <div className="w-[30px] h-[30px] rounded-full bg-white border-2 border-slate-700 text-slate-700 flex items-center justify-center text-[12px] font-bold flex-shrink-0 mt-0.5">
+                    <div className="w-7.5 h-7.5 rounded-full bg-white border-2 border-slate-700 text-slate-700 flex items-center justify-center text-[12px] font-bold shrink-0 mt-0.5">
                       04
                     </div>
                     <div className="flex flex-col pt-1 pl-1">
