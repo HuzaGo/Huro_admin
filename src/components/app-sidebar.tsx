@@ -1,3 +1,7 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -24,13 +28,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 const items = [
   {
     title: "Dashboard",
-    url: "#",
+    url: "/",
     icon: LayoutDashboard,
     isActive: true,
   },
   {
     title: "Orders",
-    url: "#",
+    url: "/orders",
     icon: ShoppingBag,
     isActive: false,
   },
@@ -67,6 +71,8 @@ const items = [
 ];
 
 export function AppSidebar() {
+  const pathname = usePathname();
+
   return (
     <Sidebar className="border-r border-gray-100 bg-white dark:bg-zinc-950">
       <SidebarHeader className="pt-6 pb-4 px-6">
@@ -82,19 +88,22 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    isActive={item.isActive}
-                    className={`py-5 ${item.isActive ? 'bg-blue-50 text-blue-600 hover:bg-blue-50 hover:text-blue-600' : 'text-gray-500 hover:text-gray-900'} rounded-lg`}
-                  >
-                    <div className="flex flex-1 items-center gap-3">
-                      <item.icon className="h-5 w-5" />
+              {items.map((item) => {
+                const isActive = pathname === item.url || (item.url !== "/" && pathname?.startsWith(item.url));
+                
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton 
+                      isActive={isActive}
+                      render={<Link href={item.url} />}
+                      className={`py-5 ${isActive ? 'bg-blue-50 text-blue-600 hover:bg-blue-50 hover:text-blue-600' : 'text-gray-500 hover:text-gray-900'} rounded-lg`}
+                    >
+                      <item.icon className="h-5 w-5 shrink-0" />
                       <span className="font-medium">{item.title}</span>
-                    </div>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
