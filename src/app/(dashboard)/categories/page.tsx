@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
-import { createCategory, fetchCategories, clearCategoryMessages } from "@/store/slices/categorySlice"
+import { createCategory, updateCategory, fetchCategories, deleteCategory, clearCategoryMessages } from "@/store/slices/categorySlice"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -20,11 +20,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Plus, Pencil, Trash2 } from "lucide-react"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 
 export default function CategoriesPage() {
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
+  
   const [name, setName] = useState("")
   const [iconUrl, setIconUrl] = useState("")
   const [sortOrder, setSortOrder] = useState<number>(0)
+  const [isActive, setIsActive] = useState<boolean>(true)
   
   const dispatch = useAppDispatch()
   const { categories, isFetching, isLoading, error, successMessage } = useAppSelector((state) => state.categories)
@@ -39,133 +52,226 @@ export default function CategoriesPage() {
     }
   }, [dispatch])
 
+  // Reset form when sheet is toggled manually (e.g. closing)
+  useEffect(() => {
+    if (!isSheetOpen) {
+      setTimeout(() => {
+        setEditingCategoryId(null)
+        setName("")
+        setIconUrl("")
+        setSortOrder(0)
+        setIsActive(true)
+        dispatch(clearCategoryMessages())
+      }, 300)
+    }
+  }, [isSheetOpen, dispatch])
+
+  const handleEditClick = (category: any) => {
+    setEditingCategoryId(category.id)
+    setName(category.name)
+    setIconUrl(category.iconUrl || "")
+    setSortOrder(category.sortOrder || 0)
+    setIsActive(category.isActive !== false) // Default to true if undefined
+    setIsSheetOpen(true)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const resultAction = await dispatch(createCategory({ name, iconUrl, sortOrder }))
     
-    if (createCategory.fulfilled.match(resultAction)) {
+    let resultAction;
+    if (editingCategoryId) {
+      resultAction = await dispatch(updateCategory({ categoryId: editingCategoryId, name, iconUrl, sortOrder, isActive }))
+    } else {
+      resultAction = await dispatch(createCategory({ name, iconUrl, sortOrder }))
+    }
+    
+    if (createCategory.fulfilled.match(resultAction) || updateCategory.fulfilled.match(resultAction)) {
       // clear form on success
       setName("")
       setIconUrl("")
       setSortOrder(0)
+      setIsActive(true)
+      setEditingCategoryId(null)
+      
+      // close the sheet
+      setIsSheetOpen(false)
       
       // refresh categories list
       dispatch(fetchCategories())
     }
   }
 
+  const handleDeleteClick = async (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete the category "${name}"?`)) {
+      const resultAction = await dispatch(deleteCategory(id))
+      if (deleteCategory.fulfilled.match(resultAction)) {
+        dispatch(fetchCategories())
+      }
+    }
+  }
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
-        <p className="text-muted-foreground">Manage product categories for the application.</p>
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
+          <p className="text-muted-foreground">Manage product categories for the application.</p>
+        </div>
+        
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetTrigger 
+            render={
+              <Button className="flex items-center gap-2" />
+            }
+          >
+            <Plus className="w-4 h-4" />
+            Create Category
+          </SheetTrigger>
+          <SheetContent className="sm:max-w-md w-full overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>{editingCategoryId ? "Edit Category" : "Create Category"}</SheetTitle>
+              <SheetDescription>
+                {editingCategoryId ? "Update the details of the category." : "Add a new product category here."}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="mt-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                  <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md">
+                    {typeof error === 'string' ? error : (error as any).message || JSON.stringify(error)}
+                  </div>
+                )}
+                {successMessage && (
+                  <div className="p-3 text-sm text-green-500 bg-green-50 border border-green-200 rounded-md">
+                    {typeof successMessage === 'string' ? successMessage : (successMessage as any).message || JSON.stringify(successMessage)}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label htmlFor="name" className="text-sm font-medium">Category Name <span className="text-red-500">*</span></label>
+                  <Input
+                    id="name"
+                    placeholder="e.g. Electronics"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="iconUrl" className="text-sm font-medium">Icon URL</label>
+                  <Input
+                    id="iconUrl"
+                    placeholder="https://example.com/icon.png"
+                    value={iconUrl}
+                    onChange={(e) => setIconUrl(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="sortOrder" className="text-sm font-medium">Sort Order</label>
+                  <Input
+                    id="sortOrder"
+                    type="number"
+                    value={sortOrder}
+                    onChange={(e) => setSortOrder(parseInt(e.target.value) || 0)}
+                    disabled={isLoading}
+                  />
+                </div>
+
+                {editingCategoryId && (
+                  <div className="space-y-2 flex items-center gap-2 pt-2">
+                    <input
+                      type="checkbox"
+                      id="isActive"
+                      className="w-4 h-4 rounded border-gray-300"
+                      checked={isActive}
+                      onChange={(e) => setIsActive(e.target.checked)}
+                      disabled={isLoading}
+                    />
+                    <label htmlFor="isActive" className="text-sm font-medium m-0">Is Active</label>
+                  </div>
+                )}
+
+                <Button type="submit" className="w-full mt-4" disabled={isLoading || !name.trim()}>
+                  {isLoading ? (editingCategoryId ? "Updating..." : "Creating...") : (editingCategoryId ? "Update Category" : "Create Category")}
+                </Button>
+              </form>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Create Category Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Create Category</CardTitle>
-            <CardDescription>Add a new product category</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md">
-                  {typeof error === 'string' ? error : (error as any).message || JSON.stringify(error)}
-                </div>
-              )}
-              {successMessage && (
-                <div className="p-3 text-sm text-green-500 bg-green-50 border border-green-200 rounded-md">
-                  {typeof successMessage === 'string' ? successMessage : (successMessage as any).message || JSON.stringify(successMessage)}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium">Category Name <span className="text-red-500">*</span></label>
-                <Input
-                  id="name"
-                  placeholder="e.g. Electronics"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="iconUrl" className="text-sm font-medium">Icon URL</label>
-                <Input
-                  id="iconUrl"
-                  placeholder="https://example.com/icon.png"
-                  value={iconUrl}
-                  onChange={(e) => setIconUrl(e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="sortOrder" className="text-sm font-medium">Sort Order</label>
-                <Input
-                  id="sortOrder"
-                  type="number"
-                  value={sortOrder}
-                  onChange={(e) => setSortOrder(parseInt(e.target.value) || 0)}
-                  disabled={isLoading}
-                />
-              </div>
-
-              <Button type="submit" className="w-full" disabled={isLoading || !name.trim()}>
-                {isLoading ? "Creating..." : "Create Category"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Categories List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Active Categories</CardTitle>
-            <CardDescription>List of all current categories</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isFetching ? (
-              <div className="flex justify-center p-4 text-sm text-muted-foreground">Loading categories...</div>
-            ) : categoryList.length === 0 ? (
-              <div className="flex justify-center p-4 text-sm text-muted-foreground">No categories found.</div>
-            ) : (
-              <div className="relative w-full overflow-auto max-h-[350px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Image</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Slug</TableHead>
-                      <TableHead className="text-right">Sort Order</TableHead>
+      <Card>
+        <CardHeader>
+          <CardTitle>Active Categories</CardTitle>
+          <CardDescription>List of all current categories</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isFetching ? (
+            <div className="flex justify-center p-4 text-sm text-muted-foreground">Loading categories...</div>
+          ) : categoryList.length === 0 ? (
+            <div className="flex justify-center p-4 text-sm text-muted-foreground">No categories found.</div>
+          ) : (
+            <div className="relative w-full overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Image</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Slug</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Sort Order</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {categoryList.map((category) => (
+                    <TableRow key={category.id}>
+                      <TableCell>
+                        {category.iconUrl ? (
+                          <img src={category.iconUrl} alt={category.name} className="w-8 h-8 object-cover rounded-md bg-muted" />
+                        ) : (
+                          <div className="w-8 h-8 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground">N/A</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-medium">{category.name}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{category.slug}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 text-xs rounded-full ${category.isActive !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {category.isActive !== false ? 'Active' : 'Inactive'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">{category.sortOrder}</TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleEditClick(category)}
+                          title="Edit Category"
+                        >
+                          <Pencil className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleDeleteClick(category.id, category.name)}
+                          title="Delete Category"
+                          disabled={isLoading}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500 hover:text-red-700" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {categoryList.map((category) => (
-                      <TableRow key={category.id}>
-                        <TableCell>
-                          {category.iconUrl ? (
-                            <img src={category.iconUrl} alt={category.name} className="w-8 h-8 object-cover rounded-md bg-muted" />
-                          ) : (
-                            <div className="w-8 h-8 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground">N/A</div>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-medium">{category.name}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs">{category.slug}</TableCell>
-                        <TableCell className="text-right">{category.sortOrder}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

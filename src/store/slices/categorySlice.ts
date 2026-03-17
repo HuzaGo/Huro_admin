@@ -6,12 +6,21 @@ interface Category {
   slug: string;
   iconUrl?: string;
   sortOrder: number;
+  isActive?: boolean;
 }
 
 interface CreateCategoryPayload {
   name: string;
   iconUrl?: string;
   sortOrder?: number;
+}
+
+interface UpdateCategoryPayload {
+  categoryId: string;
+  name: string;
+  iconUrl?: string;
+  sortOrder?: number;
+  isActive?: boolean;
 }
 
 interface CategoryState {
@@ -87,6 +96,73 @@ export const createCategory = createAsyncThunk(
   }
 );
 
+export const updateCategory = createAsyncThunk(
+  'categories/update',
+  async (payload: UpdateCategoryPayload, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+      if (!token) {
+        return rejectWithValue('Authentication token is missing. Please log in again.');
+      }
+
+      const { categoryId, ...updateData } = payload;
+
+      const response = await fetch(`/api/v1/categories/${categoryId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return rejectWithValue(data.message || data.error || 'Failed to update category');
+      }
+
+      return data;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred while updating category');
+    }
+  }
+);
+
+export const deleteCategory = createAsyncThunk(
+  'categories/delete',
+  async (categoryId: string, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+      if (!token) {
+        return rejectWithValue('Authentication token is missing. Please log in again.');
+      }
+
+      const response = await fetch(`/api/v1/categories/${categoryId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return rejectWithValue(data.message || data.error || 'Failed to delete category');
+      }
+
+      return data;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred while deleting category');
+    }
+  }
+);
+
 const categorySlice = createSlice({
   name: 'categories',
   initialState,
@@ -124,6 +200,32 @@ const categorySlice = createSlice({
         state.successMessage = action.payload.message || 'Category created successfully!';
       })
       .addCase(createCategory.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(updateCategory.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+        state.successMessage = null;
+      })
+      .addCase(updateCategory.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.successMessage = action.payload.message || 'Category updated successfully!';
+      })
+      .addCase(updateCategory.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(deleteCategory.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+        state.successMessage = null;
+      })
+      .addCase(deleteCategory.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.successMessage = action.payload.message || 'Category deleted successfully!';
+      })
+      .addCase(deleteCategory.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       });
