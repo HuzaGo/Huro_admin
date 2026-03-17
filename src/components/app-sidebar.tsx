@@ -10,6 +10,8 @@ import {
   Store,
   Tags,
   Users,
+  FolderTree,
+  LogOut
 } from "lucide-react";
 import {
   Sidebar,
@@ -23,7 +25,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { logoutUser, logout } from "@/store/slices/authSlice";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 
 const items = [
   {
@@ -36,6 +41,12 @@ const items = [
     title: "Orders",
     url: "/orders",
     icon: ShoppingBag,
+    isActive: false,
+  },
+  {
+    title: "Categories",
+    url: "/categories",
+    icon: FolderTree,
     isActive: false,
   },
   {
@@ -71,6 +82,22 @@ const items = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const dispatch = useAppDispatch();
+  const { user } = useAppSelector((state) => state.auth);
+
+  const handleLogout = () => {
+    // Try to logout from server, but also force local logout via reducer
+    dispatch(logoutUser());
+    dispatch(logout());
+    
+    // Redirect to login page
+    window.location.href = '/login';
+  };
+
+  // Safe user formatting
+  const userName = user?.fullName || user?.name || user?.username || "Admin User";
+  const userRole = user?.role || user?.Role || "Administrator";
+  const userInitials = userName.substring(0, 2).toUpperCase();
 
   return (
     <Sidebar className="border-r border-gray-100 bg-white dark:bg-zinc-950">
@@ -108,15 +135,22 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4 mb-2">
-        <div className="flex items-center gap-3 px-2">
-          <Avatar>
-            <AvatarImage src="https://github.com/shadcn.png" alt="Alex Rivera" />
-            <AvatarFallback>AR</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-gray-900">Alex Rivera</span>
-            <span className="text-xs text-gray-500">Operations Lead</span>
+        <div className="flex items-center justify-between gap-2 px-2">
+          <div className="flex items-center gap-3">
+            <Avatar>
+              {user?.avatarUrl ? (
+                <AvatarImage src={user.avatarUrl} alt={userName} />
+              ) : null}
+              <AvatarFallback>{userInitials}</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-gray-900">{userName}</span>
+              <span className="text-xs text-gray-500">{userRole}</span>
+            </div>
           </div>
+          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-gray-500 hover:text-red-500">
+            <LogOut className="h-5 w-5" />
+          </Button>
         </div>
       </SidebarFooter>
     </Sidebar>

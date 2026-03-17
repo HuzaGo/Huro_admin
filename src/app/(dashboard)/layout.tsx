@@ -1,0 +1,34 @@
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
+import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+
+export default function DashboardLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <SidebarProvider>
+      <div className="flex w-full min-h-screen">
+        <AppSidebar />
+        <div className="flex-1 flex flex-col bg-slate-50 min-w-0">
+          <header className="h-16 border-b border-gray-100 bg-white flex items-center px-4 md:px-6 gap-3">
+            <SidebarTrigger className="-ml-2 text-slate-500 hover:text-slate-900" />
+            <div className="flex-1 max-w-2xl relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input 
+                type="search" 
+                placeholder="Search orders, riders or shipments..." 
+                className="w-full pl-10 bg-slate-50/50 border-0 shadow-none focus-visible:ring-1"
+              />
+            </div>
+          </header>
+          <main className="flex-1 p-6 overflow-auto">
+            {children}
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
+  );
+}
