@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchRiders, createRider, clearRiderMessages } from "@/store/slices/riderSlice";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -12,11 +14,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, X, Star, History, Ban, ClipboardList } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Search, X, Star, History, Ban, ClipboardList, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
-// Mock Data
-const riders = [
+// Legacy mock data fallback if needed, but we will mostly use API data now
+const mockRiders = [
   { 
     id: 1, 
     firstName: "Eric", 
@@ -68,9 +86,66 @@ const riders = [
 ];
 
 export default function RidersPage() {
-  const [selectedRiderId, setSelectedRiderId] = useState<number | null>(1);
+  const [selectedRiderId, setSelectedRiderId] = useState<string | null>(null);
+  
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [vehicleType, setVehicleType] = useState("motorcycle");
+  const [vehiclePlate, setVehiclePlate] = useState("");
+  const [nationalId, setNationalId] = useState("");
 
-  const selectedRider = riders.find((r) => r.id === selectedRiderId);
+  const dispatch = useAppDispatch();
+  const { riders, totalCount, isFetching, isLoading, error, successMessage } = useAppSelector((state) => state.riders);
+  const ridersList = Array.isArray(riders) ? riders : [];
+
+  useEffect(() => {
+    dispatch(fetchRiders({ page: 1, limit: 20 }));
+    
+    return () => {
+      dispatch(clearRiderMessages());
+    };
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (!isSheetOpen) {
+      setTimeout(() => {
+        setFullName("");
+        setEmail("");
+        setPhone("");
+        setPassword("");
+        setVehicleType("motorcycle");
+        setVehiclePlate("");
+        setNationalId("");
+        dispatch(clearRiderMessages());
+      }, 300);
+    }
+  }, [isSheetOpen, dispatch]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const payload = {
+      fullName,
+      email,
+      phone,
+      password: password || undefined,
+      vehicleType,
+      vehiclePlate,
+      nationalId,
+    };
+
+    const resultAction = await dispatch(createRider(payload));
+    
+    if (createRider.fulfilled.match(resultAction)) {
+      setIsSheetOpen(false);
+      dispatch(fetchRiders({ page: 1, limit: 20 }));
+    }
+  };
+
+  const selectedRider = ridersList.find((r) => r.id === selectedRiderId);
   const isSelected = selectedRider !== undefined;
 
   return (

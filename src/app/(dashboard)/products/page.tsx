@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
 import { fetchCategories } from "@/store/slices/categorySlice"
-import { createProduct, clearProductMessages } from "@/store/slices/productSlice"
+import { createProduct, updateProduct, deleteProduct, fetchProducts, clearProductMessages, Product } from "@/store/slices/productSlice"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -51,6 +51,7 @@ export default function ProductsPage() {
   const [price, setPrice] = useState<number>(0)
   const [stockQuantity, setStockQuantity] = useState<number>(0)
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(0)
+  const [isVisible, setIsVisible] = useState<boolean>(true)
   const [pickupLocationName, setPickupLocationName] = useState("")
   const [pickupLocationNote, setPickupLocationNote] = useState("")
   const [pickupLocationUrl, setPickupLocationUrl] = useState("")
@@ -69,7 +70,7 @@ export default function ProductsPage() {
     dispatch(fetchCategories())
     
     // Fetch products
-    // dispatch(fetchProducts()) // Assuming you will add this later
+    dispatch(fetchProducts({ page: 1, limit: 20, sortBy: 'newest' }))
     
     // Clear messages when unmounting
     return () => {
@@ -88,6 +89,7 @@ export default function ProductsPage() {
         setPrice(0)
         setStockQuantity(0)
         setLowStockThreshold(0)
+        setIsVisible(true)
         setPickupLocationName("")
         setPickupLocationNote("")
         setPickupLocationUrl("")
@@ -98,36 +100,65 @@ export default function ProductsPage() {
     }
   }, [isSheetOpen, dispatch])
 
+  const handleEditProduct = (product: Product) => {
+    setEditingProductId(product.id)
+    setName(product.name || "")
+    setDescription(product.description || "")
+    setCategoryId(product.categoryId || "")
+    setPrice(product.price ?? 0)
+    setStockQuantity(product.stockQuantity ?? 0)
+    setLowStockThreshold(product.lowStockThreshold ?? 0)
+    setIsVisible(product.isVisible ?? true)
+    setPickupLocationName(product.pickupLocationName || "")
+    setPickupLocationNote(product.pickupLocationNote || "")
+    setPickupLocationUrl(product.pickupLocationUrl || "")
+    setPickupLatitude(product.pickupLatitude ?? 0)
+    setPickupLongitude(product.pickupLongitude ?? 0)
+    setIsSheetOpen(true)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    // Ensure numeric fields are explicitly sent as numbers
     const payload = {
       name,
       description,
       categoryId,
-      price,
-      stockQuantity,
-      lowStockThreshold,
+      price: Number(price) || 0,
+      stockQuantity: Number(stockQuantity) || 0,
+      lowStockThreshold: Number(lowStockThreshold) || 0,
+      isVisible,
       pickupLocationName,
       pickupLocationNote,
       pickupLocationUrl,
-      pickupLatitude,
-      pickupLongitude
+      pickupLatitude: Number(pickupLatitude) || 0,
+      pickupLongitude: Number(pickupLongitude) || 0
     }
 
     let resultAction;
     if (editingProductId) {
-      // resultAction = await dispatch(updateProduct({ productId: editingProductId, ...payload }))
+      resultAction = await dispatch(updateProduct({ productId: editingProductId, ...payload }))
     } else {
       resultAction = await dispatch(createProduct(payload))
     }
     
-    if (createProduct.fulfilled.match(resultAction)) {
+    if (createProduct.fulfilled.match(resultAction) || updateProduct.fulfilled.match(resultAction)) {
       // Close the sheet - form reset is handled by the useEffect above
       setIsSheetOpen(false)
       
       // refresh products list
-      // dispatch(fetchProducts()) // Fetch the new list
+      dispatch(fetchProducts({ page: 1, limit: 20, sortBy: 'newest' }))
+    }
+  }
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (window.confirm("Are you sure you want to delete this product? This action generally marks it as deleted and may fail if it has active orders.")) {
+      const resultAction = await dispatch(deleteProduct(productId));
+      if (deleteProduct.fulfilled.match(resultAction)) {
+        // optionally refresh if standard optimistic UI delete isn't enough:
+        // dispatch(fetchProducts({ page: 1, limit: 20, sortBy: 'newest' }))
+      }
     }
   }
 
@@ -140,11 +171,9 @@ export default function ProductsPage() {
         </div>
         
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-          <SheetTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="w-4 h-4" />
-              Create Product
-            </Button>
+          <SheetTrigger render={<Button className="flex items-center gap-2" />}>
+            <Plus className="w-4 h-4" />
+            Create Product
           </SheetTrigger>
           <SheetContent className="sm:max-w-xl w-full overflow-y-auto px-6 py-8">
             <SheetHeader>
@@ -195,7 +224,7 @@ export default function ProductsPage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="categoryId">Category <span className="text-red-500">*</span></Label>
-                    <Select value={categoryId} onValueChange={setCategoryId} disabled={isLoading} required>
+                    <Select value={categoryId} onValueChange={(val) => setCategoryId(val || "")} disabled={isLoading} required>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a category" />
                       </SelectTrigger>
@@ -222,6 +251,19 @@ export default function ProductsPage() {
                         required
                         disabled={isLoading}
                       />
+                    </div>
+                    <div className="space-y-2 flex flex-col justify-center">
+                      <div className="flex items-center gap-2 pt-6">
+                        <input 
+                          type="checkbox" 
+                          id="isVisible" 
+                          className="w-4 h-4 cursor-pointer" 
+                          checked={isVisible} 
+                          onChange={(e) => setIsVisible(e.target.checked)} 
+                          disabled={isLoading} 
+                        />
+                        <Label htmlFor="isVisible" className="cursor-pointer">Visible to Customers</Label>
+                      </div>
                     </div>
                   </div>
                   
@@ -336,6 +378,11 @@ export default function ProductsPage() {
           <CardDescription>List of all current products</CardDescription>
         </CardHeader>
         <CardContent>
+          {error && (
+            <div className="mb-4 p-4 text-sm text-red-500 bg-red-100 rounded-md border border-red-200">
+              Error fetching products: {error}
+            </div>
+          )}
           {isFetching ? (
             <div className="flex justify-center p-4 text-sm text-muted-foreground">Loading products...</div>
           ) : productList.length === 0 ? (
@@ -353,31 +400,37 @@ export default function ProductsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {productList.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell className="text-muted-foreground text-xs">{product.categoryId}</TableCell>
-                      <TableCell className="text-right">{product.price}</TableCell>
-                      <TableCell className="text-right">{product.stockQuantity}</TableCell>
-                      <TableCell className="text-right">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          title="Edit Product"
-                        >
-                          <Pencil className="w-4 h-4 text-muted-foreground" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          title="Delete Product"
-                          disabled={isLoading}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500 hover:text-red-700" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {productList.map((product) => {
+                    const category = categoryList.find(c => c.id === product.categoryId);
+                    return (
+                      <TableRow key={product.id}>
+                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs">{category ? category.name : product.categoryId}</TableCell>
+                        <TableCell className="text-right">{product.price}</TableCell>
+                        <TableCell className="text-right">{product.stockQuantity}</TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            title="Edit Product"
+                            onClick={() => handleEditProduct(product)}
+                            disabled={isLoading}
+                          >
+                            <Pencil className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            title="Delete Product"
+                            onClick={() => handleDeleteProduct(product.id)}
+                            disabled={isLoading}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500 hover:text-red-700" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

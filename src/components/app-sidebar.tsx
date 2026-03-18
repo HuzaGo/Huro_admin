@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -90,6 +91,11 @@ export function AppSidebar() {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleLogout = () => {
     // Try to logout from server, but also force local logout via reducer
@@ -101,8 +107,8 @@ export function AppSidebar() {
   };
 
   // Safe user formatting
-  const userName = user?.fullName || user?.name || user?.username || "Admin User";
-  const userRole = user?.role || user?.Role || "Administrator";
+  const userName = isMounted && user ? (user.fullName || user.name || user.username || "Admin User") : "Admin User";
+  const userRole = isMounted && user ? (user.role || user.Role || "Administrator") : "Administrator";
   const userInitials = userName.substring(0, 2).toUpperCase();
 
   return (
