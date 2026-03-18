@@ -127,7 +127,7 @@ export default function CategoriesPage() {
             <Plus className="w-4 h-4" />
             Create Category
           </SheetTrigger>
-          <SheetContent className="sm:max-w-md w-full overflow-y-auto">
+          <SheetContent className="sm:max-w-md w-full overflow-y-auto px-6 py-8">
             <SheetHeader>
               <SheetTitle>{editingCategoryId ? "Edit Category" : "Create Category"}</SheetTitle>
               <SheetDescription>

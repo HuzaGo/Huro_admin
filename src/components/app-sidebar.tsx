@@ -50,6 +50,12 @@ const items = [
     isActive: false,
   },
   {
+    title: "Products",
+    url: "/products",
+    icon: ShoppingBag, // You can change this icon if you prefer, imported above
+    isActive: false,
+  },
+  {
     title: "Batches",
     url: "/batches",
     icon: Layers,
