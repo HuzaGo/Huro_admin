@@ -278,7 +278,7 @@ export default function RidersPage() {
 
       {/* Create Rider Form */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="overflow-y-auto w-full sm:max-w-md" side="right">
+        <SheetContent className="overflow-y-auto w-full sm:max-w-md px-6" side="right">
           <SheetHeader>
             <SheetTitle>Add New Rider</SheetTitle>
             <SheetDescription>

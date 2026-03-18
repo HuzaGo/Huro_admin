@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -13,7 +15,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { XOctagon } from "lucide-react";
+import { XOctagon, Plus, X } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { createBatch, clearBatchMessages } from "@/store/slices/batchSlice";
+import { fetchRiders } from "@/store/slices/riderSlice";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+// Mock Delivery Zones Data
+const DELIVERY_ZONES = [
+  { id: "zone-1", name: "Zone A - UR CST Main Gate" },
+  { id: "zone-2", name: "Zone B - Kicukiro" },
+  { id: "zone-3", name: "Zone C - Remera" },
+  { id: "zone-4", name: "Zone D - Nyarugenge" },
+];
 
 // Mock Data
 const batches = [
@@ -28,7 +42,7 @@ const batches = [
   },
   { 
     id: "B13", 
-    orders: 9, 
+    orders: 9,
     stops: 3, 
     rider: "John", 
     location: "UR CST Main Gate", 
@@ -39,11 +53,72 @@ const batches = [
 
 export default function BatchesPage() {
   const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const [formData, setFormData] = useState({
+    slotLabel: "",
+    scheduledAt: "",
+    cutoffAt: "",
+    maxOrders: 15,
+    deliveryZoneId: "",
+    riderId: ""
+  });
+
+  const dispatch = useAppDispatch();
+  const { isCreating, error, successMessage } = useAppSelector((state) => state.batches);
+  const { riders } = useAppSelector((state) => state.riders);
+
+  useEffect(() => {
+    dispatch(fetchRiders({ limit: 100 })); // Fetch riders to populate the dropdown
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (successMessage) {
+      setIsCreateModalOpen(false);
+      setFormData({
+        slotLabel: "",
+        scheduledAt: "",
+        cutoffAt: "",
+        maxOrders: 15,
+        deliveryZoneId: "",
+        riderId: ""
+      });
+      // Optional: fetch batches again here if fetchBatches is implemented
+      const timer = setTimeout(() => {
+        dispatch(clearBatchMessages());
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage, dispatch]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ 
+      ...prev, 
+      [name]: name === 'maxOrders' ? parseInt(value) || 0 : value 
+    }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => ({ 
+      ...prev, 
+      [name]: value 
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    dispatch(createBatch({
+      ...formData,
+      scheduledAt: new Date(formData.scheduledAt).toISOString(),
+      cutoffAt: new Date(formData.cutoffAt).toISOString(),
+    }));
+  };
 
   const isBatchSelected = selectedBatch !== null;
 
   return (
-    <div className="flex flex-col gap-6 max-w-350 mx-auto">
+    <div className="flex flex-col gap-6 max-w-350 mx-auto relative">
       
       {/* Top Navigation & Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-px">
@@ -56,7 +131,11 @@ export default function BatchesPage() {
           </Button>
         </div>
         <div className="mb-3 md:mb-0">
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-semibold rounded-lg px-6">
+          <Button 
+            className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-semibold rounded-lg px-6"
+            onClick={() => setIsCreateModalOpen(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" />
             Create Batch
           </Button>
         </div>
@@ -242,6 +321,152 @@ export default function BatchesPage() {
         )}
 
       </div>
+
+      {/* Create Batch Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-md bg-white shadow-xl animate-in zoom-in-95 duration-200">
+            <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+              <CardTitle className="text-xl">Create New Batch</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setIsCreateModalOpen(false);
+                  dispatch(clearBatchMessages());
+                }}
+                className="h-8 w-8"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <form onSubmit={handleSubmit}>
+              <CardContent className="grid gap-4 pt-6">
+                {error && (
+                  <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-200">
+                    {error}
+                  </div>
+                )}
+                {successMessage && (
+                  <div className="bg-green-50 text-green-600 p-3 rounded-md text-sm border border-green-200">
+                    {successMessage}
+                  </div>
+                )}
+
+                <div className="grid gap-2">
+                  <Label htmlFor="slotLabel">Slot Label (e.g. 12:00 - 12:30)</Label>
+                  <Input
+                    id="slotLabel"
+                    name="slotLabel"
+                    value={formData.slotLabel}
+                    onChange={handleInputChange}
+                    placeholder="12:00 - 12:30"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="scheduledAt">Scheduled At</Label>
+                    <Input
+                      id="scheduledAt"
+                      name="scheduledAt"
+                      type="datetime-local"
+                      value={formData.scheduledAt}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="cutoffAt">Cutoff At</Label>
+                    <Input
+                      id="cutoffAt"
+                      name="cutoffAt"
+                      type="datetime-local"
+                      value={formData.cutoffAt}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="maxOrders">Max Orders</Label>
+                  <Input
+                    id="maxOrders"
+                    name="maxOrders"
+                    type="number"
+                    min="1"
+                    value={formData.maxOrders}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="deliveryZoneId">Delivery Zone</Label>
+                  <Select
+                    value={formData.deliveryZoneId}
+                    onValueChange={(value) => handleSelectChange('deliveryZoneId', value as string)}
+                    required
+                  >
+                    <SelectTrigger id="deliveryZoneId">
+                      <SelectValue placeholder="Select Delivery Zone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DELIVERY_ZONES.map((zone) => (
+                        <SelectItem key={zone.id} value={zone.id}>
+                          {zone.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="riderId">Assigned Rider</Label>
+                  <Select
+                    value={formData.riderId}
+                    onValueChange={(value) => handleSelectChange('riderId', value as string)}
+                    required
+                  >
+                    <SelectTrigger id="riderId">
+                      <SelectValue placeholder="Select Rider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {riders.map((rider) => (
+                        <SelectItem key={rider.id} value={rider.id}>
+                          {rider.fullName}
+                        </SelectItem>
+                      ))}
+                      {riders.length === 0 && (
+                        <SelectItem value="no-rider" disabled>No riders available</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+              <CardFooter className="border-t pt-4 flex justify-end gap-3">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsCreateModalOpen(false)}
+                  disabled={isCreating}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={isCreating}
+                >
+                  {isCreating ? 'Creating...' : 'Create Batch'}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

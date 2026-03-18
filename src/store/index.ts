@@ -3,6 +3,7 @@ import authReducer from './slices/authSlice'
 import categoryReducer from './slices/categorySlice'
 import productReducer from './slices/productSlice'
 import riderReducer from './slices/riderSlice'
+import batchReducer from './slices/batchSlice'
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     categories: categoryReducer,
     products: productReducer,
     riders: riderReducer,
+    batches: batchReducer,
   },
 })
 
