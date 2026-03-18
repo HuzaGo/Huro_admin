@@ -33,58 +33,6 @@ import {
 import { Search, X, Star, History, Ban, ClipboardList, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
-// Legacy mock data fallback if needed, but we will mostly use API data now
-const mockRiders = [
-  { 
-    id: 1, 
-    firstName: "Eric", 
-    lastName: "Hoffmann",
-    status: "Active",
-    batch: "#B-9021", 
-    earnings: "$1,240.00",
-    phone: "078XXXX",
-    motorcycleId: "Moto-992",
-    joinDate: "Jan 12, 2023",
-    rating: 4.9
-  },
-  { 
-    id: 2, 
-    firstName: "Sarah", 
-    lastName: "Jenkins",
-    status: "Active", 
-    batch: "#B-9025", 
-    earnings: "$980.50",
-    phone: "078XXXX",
-    motorcycleId: "Moto-124",
-    joinDate: "Mar 05, 2023",
-    rating: 4.8
-  },
-  { 
-    id: 3, 
-    firstName: "James", 
-    lastName: "Wu",
-    status: "Offline", 
-    batch: "None", 
-    earnings: "$540.20",
-    phone: "078XXXX",
-    motorcycleId: "Moto-455",
-    joinDate: "Nov 22, 2022",
-    rating: 4.5
-  },
-  { 
-    id: 4, 
-    firstName: "Maria", 
-    lastName: "Garcia",
-    status: "Active", 
-    batch: "#B-8998", 
-    earnings: "$2,100.00",
-    phone: "078XXXX",
-    motorcycleId: "Moto-889",
-    joinDate: "Aug 14, 2022",
-    rating: 5.0
-  },
-];
-
 export default function RidersPage() {
   const [selectedRiderId, setSelectedRiderId] = useState<string | null>(null);
   
@@ -158,12 +106,15 @@ export default function RidersPage() {
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-1">Riders</h1>
           <p className="text-[15px] font-medium text-slate-500">
-            Real-time monitoring of 1,240 active units.
+            Real-time monitoring of {totalCount || riders.length} active units.
           </p>
         </div>
-        <div className="mb-1 md:mb-0">
+        <div className="flex flex-col md:flex-row gap-3">
           <Button variant="outline" className="text-slate-900 border-slate-200 shadow-sm font-semibold rounded-md px-5 hover:bg-slate-50">
             All Riders
+          </Button>
+          <Button onClick={() => setIsSheetOpen(true)} className="bg-[#4880FF] hover:bg-[#4880FF]/90 text-white font-semibold rounded-md px-5">
+            <Plus className="w-4 h-4 mr-2" /> Add Rider
           </Button>
         </div>
       </div>
@@ -178,14 +129,29 @@ export default function RidersPage() {
               <Table>
                 <TableHeader className="bg-white">
                   <TableRow className="hover:bg-transparent border-b border-slate-100">
-                    <TableHead className="font-bold text-slate-500 text-[11px] uppercase tracking-wider h-14 pl-6">RIDER NAME</TableHead>
-                    <TableHead className="font-bold text-slate-500 text-[11px] uppercase tracking-wider h-14">STATUS</TableHead>
-                    <TableHead className="font-bold text-slate-500 text-[11px] uppercase tracking-wider h-14">CURRENT BATCH</TableHead>
-                    <TableHead className="font-bold text-slate-500 text-[11px] uppercase tracking-wider h-14 pr-6 text-right">EARNINGS</TableHead>
+                    <TableHead className="font-bold text-slate-500 text-[11px] uppercase tracking-wider h-14 pl-6">RIDER INFO</TableHead>
+                    <TableHead className="font-bold text-slate-500 text-[11px] uppercase tracking-wider h-14">PHONE</TableHead>
+                    <TableHead className="font-bold text-slate-500 text-[11px] uppercase tracking-wider h-14">VEHICLE</TableHead>
+                    <TableHead className="font-bold text-slate-500 text-[11px] uppercase tracking-wider h-14 pr-6 text-right">NATIONAL ID</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {riders.map((rider) => {
+                  {isFetching ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center">
+                        <div className="flex justify-center items-center h-full">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : ridersList.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center text-slate-500">
+                        No riders found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                  ridersList.map((rider) => {
                     const isActiveRow = selectedRiderId === rider.id;
                     return (
                       <TableRow 
@@ -198,34 +164,29 @@ export default function RidersPage() {
                             <div className="absolute left-0 top-0 -bottom-px w-0.75 bg-blue-500 z-10" />
                           )}
                           <div className="flex flex-col leading-tight">
-                            <span className="font-bold text-slate-900 text-[15px]">{rider.firstName}</span>
-                            <span className="font-bold text-slate-900 text-[15px]">{rider.lastName}</span>
+                            <span className="font-bold text-slate-900 text-[15px]">{rider.fullName}</span>
+                            <span className="text-slate-500 text-[13px]">{rider.email}</span>
                           </div>
                         </TableCell>
                         <TableCell className="py-5">
-                          {rider.status === "Active" ? (
-                            <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100/80 border-none font-semibold px-2.5">
-                              Active
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-slate-100 text-slate-500 hover:bg-slate-200/80 border-none font-semibold px-2.5">
-                              Offline
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-5">
-                          <span className={`text-[14px] font-medium ${rider.batch === 'None' ? 'text-slate-400' : 'text-slate-600'}`}>
-                            {rider.batch}
+                          <span className="font-medium text-slate-700 text-[14px]">
+                            {rider.phone}
                           </span>
                         </TableCell>
+                        <TableCell className="py-5">
+                          <div className="flex flex-col leading-tight">
+                            <span className="font-semibold text-slate-900 text-[14px] uppercase">{rider.vehicleType}</span>
+                            <span className="text-slate-500 text-[13px]">{rider.vehiclePlate}</span>
+                          </div>
+                        </TableCell>
                         <TableCell className="py-5 pr-6 text-right">
-                          <span className="font-bold text-slate-900 text-[15px]">
-                            {rider.earnings}
+                          <span className="font-bold text-slate-900 text-[14px]">
+                            {rider.nationalId}
                           </span>
                         </TableCell>
                       </TableRow>
                     );
-                  })}
+                  }))}
                 </TableBody>
               </Table>
             </div>
@@ -239,15 +200,15 @@ export default function RidersPage() {
               
               {/* Header */}
               <div className="p-6 relative border-b border-gray-100">
-                <div className="flex items-center gap-3 mb-1.5">
-                  <h2 className="text-[22px] font-bold text-slate-900">
-                    {selectedRider.firstName}
+                <div className="flex items-center gap-3 mb-1.5 break-words max-w-[85%]">
+                  <h2 className="text-[22px] font-bold text-slate-900 leading-tight">
+                    {selectedRider.fullName}
                   </h2>
                   <Badge variant="secondary" className="bg-blue-400 text-white hover:bg-blue-500 border-none font-bold uppercase tracking-wider text-[10px] px-2 py-0.5">
-                    {selectedRider.status}
+                    Active
                   </Badge>
                 </div>
-                <p className="text-[13px] font-medium text-slate-500">Full-time Delivery Partner</p>
+                <p className="text-[13px] font-medium text-slate-500">{selectedRider.email}</p>
                 <div className="absolute right-4 top-5">
                   <Button 
                     variant="ghost" 
@@ -268,28 +229,25 @@ export default function RidersPage() {
                 
                 <div className="flex flex-col gap-4">
                   <div className="flex justify-between items-center text-[14px]">
+                    <span className="text-slate-500 font-medium">National ID</span>
+                    <span className="text-slate-900 font-bold tracking-wide">{selectedRider.nationalId}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[14px]">
                     <span className="text-slate-500 font-medium">Phone Number</span>
                     <span className="text-slate-900 font-bold tracking-wide">{selectedRider.phone}</span>
                   </div>
                   
                   <div className="flex justify-between items-center text-[14px]">
-                    <span className="text-slate-500 font-medium">Motorcycle ID</span>
+                    <span className="text-slate-500 font-medium">Vehicle Plate</span>
                     <Badge className="bg-slate-900 hover:bg-slate-800 text-white border-none rounded-md px-2 py-0.5 text-[12px] font-bold">
-                      {selectedRider.motorcycleId}
+                      {selectedRider.vehiclePlate}
                     </Badge>
                   </div>
 
                   <div className="flex justify-between items-center text-[14px]">
                     <span className="text-slate-500 font-medium">Join Date</span>
-                    <span className="text-slate-900 font-semibold">{selectedRider.joinDate}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center text-[14px]">
-                    <span className="text-slate-500 font-medium">Rating</span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-slate-900 font-bold">{selectedRider.rating.toFixed(1)}</span>
-                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 mb-0.5" />
-                    </div>
+                    <span className="text-slate-900 font-semibold">{selectedRider.createdAt ? new Date(selectedRider.createdAt).toLocaleDateString() : 'N/A'}</span>
                   </div>
                 </div>
               </div>
@@ -317,6 +275,123 @@ export default function RidersPage() {
         )}
 
       </div>
+
+      {/* Create Rider Form */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent className="overflow-y-auto w-full sm:max-w-md" side="right">
+          <SheetHeader>
+            <SheetTitle>Add New Rider</SheetTitle>
+            <SheetDescription>
+              Enter the rider's details below to register them in the system.
+            </SheetDescription>
+          </SheetHeader>
+
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm mt-4">
+              {error}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="bg-green-50 text-green-600 p-3 rounded-md text-sm mt-4">
+              {successMessage}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Full Name</Label>
+              <Input
+                id="fullName"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="John Doe"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="john@example.com"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+250XXXXXXXXX"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Leave blank for default"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="vehicleType">Vehicle Type</Label>
+              <Select value={vehicleType} onValueChange={(val) => setVehicleType(val || "motorcycle")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select vehicle type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="motorcycle">Motorcycle</SelectItem>
+                  <SelectItem value="bicycle">Bicycle</SelectItem>
+                  <SelectItem value="car">Car</SelectItem>
+                  <SelectItem value="van">Van</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="vehiclePlate">Vehicle Plate</Label>
+              <Input
+                id="vehiclePlate"
+                value={vehiclePlate}
+                onChange={(e) => setVehiclePlate(e.target.value)}
+                placeholder="RAE 123A"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="nationalId">National ID</Label>
+              <Input
+                id="nationalId"
+                value={nationalId}
+                onChange={(e) => setNationalId(e.target.value)}
+                placeholder="119..."
+                required
+              />
+            </div>
+
+            <div className="pt-4 flex justify-end gap-3">
+              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 text-white">
+                {isLoading ? "Saving..." : "Save Rider"}
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
