@@ -200,7 +200,7 @@ export default function RidersPage() {
               
               {/* Header */}
               <div className="p-6 relative border-b border-gray-100">
-                <div className="flex items-center gap-3 mb-1.5 break-words max-w-[85%]">
+                <div className="flex items-center gap-3 mb-1.5 wrap-break-word max-w-[85%]">
                   <h2 className="text-[22px] font-bold text-slate-900 leading-tight">
                     {selectedRider.fullName}
                   </h2>
