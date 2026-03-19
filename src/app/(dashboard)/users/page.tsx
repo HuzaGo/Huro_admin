@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchUsers } from "@/store/slices/userSlice";
 import { Search, Plus, X, Mail, Phone, Calendar, User as UserIcon, ShieldAlert, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,8 +66,22 @@ const users = [
 
 export default function UsersPage() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const selectedUser = users.find(u => u.id === selectedUserId);
+  const dispatch = useAppDispatch();
+  const { usersList, isFetching } = useAppSelector((state) => state.users);
+
+  useEffect(() => {
+    dispatch(fetchUsers({ page: 1, limit: 20 }));
+  }, [dispatch]);
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    dispatch(fetchUsers({ page: 1, limit: 20, search: e.target.value }));
+  };
+
+  const selectedUser = usersList.find(u => u.id === selectedUserId);
+  const selectedMockUser = users.find(u => u.id === selectedUserId) || users[0]; // fallback for mock details for now
 
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-gray-50/50">
@@ -86,6 +102,8 @@ export default function UsersPage() {
                   type="text"
                   placeholder="Search users by name, email..."
                   className="pl-9 bg-white"
+                  value={searchQuery}
+                  onChange={handleSearch}
                 />
               </div>
               <Button className="bg-blue-500 hover:bg-blue-600 text-white">
@@ -108,51 +126,66 @@ export default function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
-                  <TableRow 
-                    key={user.id}
-                    onClick={() => setSelectedUserId(user.id === selectedUserId ? null : user.id)}
-                    className={`cursor-pointer transition-colors border-b border-gray-50 hover:bg-gray-50 ${
-                      selectedUserId === user.id ? 'bg-blue-50/50 relative' : ''
-                    }`}
-                  >
-                    {/* Active row indicator */}
-                    <TableCell className="py-4 relative">
-                      {selectedUserId === user.id && (
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />
-                      )}
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
-                          <AvatarImage src={user.avatar} alt={user.name} />
-                          <AvatarFallback className="bg-blue-100 text-blue-700">{user.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium text-gray-900">{user.name}</p>
-                          <p className="text-xs text-gray-500">{user.email}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className={`${user.role === 'Admin' ? 'bg-purple-100 text-purple-700 hover:bg-purple-100' : 'bg-gray-100 text-gray-700 hover:bg-gray-100'} font-normal`}>
-                        {user.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center text-gray-600 text-sm">
-                      {user.joinedDate}
-                    </TableCell>
-                    <TableCell className="text-center text-gray-600 text-sm">
-                      {user.lastActive}
-                    </TableCell>
-                    <TableCell className="text-right pr-6">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <div className={`h-2 w-2 rounded-full ${user.status === 'ACTIVE' ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <span className={`text-sm font-medium ${user.status === 'ACTIVE' ? 'text-green-600' : 'text-red-500'}`}>
-                          {user.status}
-                        </span>
-                      </div>
+                {isFetching ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-10 text-gray-500">
+                      Loading users...
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : usersList.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-10 text-gray-500">
+                      No users found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  usersList.map((user) => (
+                    <TableRow 
+                      key={user.id}
+                      onClick={() => setSelectedUserId(user.id === selectedUserId ? null : user.id)}
+                      className={`cursor-pointer transition-colors border-b border-gray-50 hover:bg-gray-50 ${
+                        selectedUserId === user.id ? 'bg-blue-50/50 relative' : ''
+                      }`}
+                    >
+                      {/* Active row indicator */}
+                      <TableCell className="py-4 relative">
+                        {selectedUserId === user.id && (
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />
+                        )}
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarFallback className="bg-blue-100 text-blue-700">
+                              {user.fullName ? user.fullName.charAt(0) : 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium text-gray-900">{user.fullName || 'N/A'}</p>
+                            <p className="text-xs text-gray-500">{user.email}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={`${user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700 hover:bg-purple-100' : 'bg-gray-100 text-gray-700 hover:bg-gray-100'} font-normal`}>
+                          {user.role || 'USER'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center text-gray-600 text-sm">
+                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-center text-gray-600 text-sm">
+                        {user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-right pr-6">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <div className={`h-2 w-2 rounded-full ${user.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                          <span className={`text-sm font-medium ${user.isActive ? 'text-green-600' : 'text-red-500'}`}>
+                            {user.isActive ? 'ACTIVE' : 'INACTIVE'}
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </Card>
@@ -179,15 +212,16 @@ export default function UsersPage() {
             {/* User Profile */}
             <div className="flex flex-col items-center text-center">
               <Avatar className="h-20 w-20 mb-4 border-2 border-white shadow-sm">
-                <AvatarImage src={selectedUser.avatar} alt={selectedUser.name} />
-                <AvatarFallback className="bg-blue-100 text-blue-700 text-xl">{selectedUser.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback className="bg-blue-100 text-blue-700 text-xl">
+                  {selectedUser.fullName ? selectedUser.fullName.charAt(0) : 'U'}
+                </AvatarFallback>
               </Avatar>
-              <h3 className="text-xl font-bold text-gray-900">{selectedUser.name}</h3>
+              <h3 className="text-xl font-bold text-gray-900">{selectedUser.fullName || 'N/A'}</h3>
               <div className="flex items-center gap-2 mt-1.5">
                 <Badge variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-100 font-normal">
-                  {selectedUser.role}
+                  {selectedUser.role || 'USER'}
                 </Badge>
-                {selectedUser.status === 'ACTIVE' ? (
+                {selectedUser.isActive ? (
                   <Badge className="bg-green-50 text-green-700 border border-green-200 hover:bg-green-50 font-normal">Active</Badge>
                 ) : (
                   <Badge className="bg-red-50 text-red-700 border border-red-200 hover:bg-red-50 font-normal">Suspended</Badge>
@@ -205,11 +239,11 @@ export default function UsersPage() {
                 </div>
                 <div className="flex items-center gap-3 text-sm">
                   <Phone className="h-4 w-4 text-gray-400" />
-                  <span className="font-medium text-gray-900">{selectedUser.phone}</span>
+                  <span className="font-medium text-gray-900">{selectedUser.phone || 'N/A'}</span>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
                   <Calendar className="h-4 w-4 text-gray-400" />
-                  <span className="font-medium text-gray-900">Joined {selectedUser.joinedDate}</span>
+                  <span className="font-medium text-gray-900">Joined {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString() : 'N/A'}</span>
                 </div>
               </div>
             </div>
@@ -220,21 +254,21 @@ export default function UsersPage() {
                 <Mail className="h-4 w-4 mr-2" />
                 Message
               </Button>
-              <Button variant="outline" className={`w-full ${selectedUser.status === 'ACTIVE' ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-green-600 border-green-200 hover:bg-green-50'}`}>
+              <Button variant="outline" className={`w-full ${selectedUser.isActive ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-green-600 border-green-200 hover:bg-green-50'}`}>
                 <ShieldAlert className="h-4 w-4 mr-2" />
-                {selectedUser.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                {selectedUser.isActive ? 'Suspend' : 'Activate'}
               </Button>
             </div>
 
             <Separator className="bg-gray-100" />
 
             {/* Recent Orders Overview (Only for customers) */}
-            {selectedUser.role === 'Customer' && (
+            {selectedUser.role === 'CUSTOMER' && (
               <div>
                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Recent Orders</h4>
-                {selectedUser.recentOrders.length > 0 ? (
+                {selectedMockUser?.recentOrders?.length > 0 ? (
                   <div className="space-y-3">
-                    {selectedUser.recentOrders.map((order) => (
+                    {selectedMockUser.recentOrders.map((order) => (
                       <div key={order.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-white shadow-sm">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 bg-gray-50 rounded-md flex items-center justify-center shrink-0">
