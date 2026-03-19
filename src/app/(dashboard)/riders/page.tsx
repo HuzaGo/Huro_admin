@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchRiders, createRider, updateRiderStatus, clearRiderMessages } from "@/store/slices/riderSlice";
+import { fetchRiders, createRider, updateRiderStatus, clearRiderMessages, fetchRiderVehicles, updateRiderIdentity } from "@/store/slices/riderSlice";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,8 +35,13 @@ import { Input } from "@/components/ui/input";
 
 export default function RidersPage() {
   const [selectedRiderId, setSelectedRiderId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'info' | 'vehicles'>('info');
   
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isEditingIdentity, setIsEditingIdentity] = useState(false);
+  const [editLicenseId, setEditLicenseId] = useState("");
+  const [editNationalId, setEditNationalId] = useState("");
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -47,7 +52,7 @@ export default function RidersPage() {
   const [nationalId, setNationalId] = useState("");
 
   const dispatch = useAppDispatch();
-  const { riders, totalCount, isFetching, isLoading, error, successMessage } = useAppSelector((state) => state.riders);
+  const { riders, totalCount, isFetching, isLoading, error, successMessage, selectedRiderVehicles, isFetchingVehicles } = useAppSelector((state) => state.riders);
   const ridersList = Array.isArray(riders) ? riders : [];
 
   useEffect(() => {
@@ -57,6 +62,12 @@ export default function RidersPage() {
       dispatch(clearRiderMessages());
     };
   }, [dispatch]);
+
+  useEffect(() => {
+    if (selectedRiderId && activeTab === 'vehicles') {
+      dispatch(fetchRiderVehicles(selectedRiderId));
+    }
+  }, [selectedRiderId, activeTab, dispatch]);
 
   useEffect(() => {
     if (!isSheetOpen) {
@@ -99,6 +110,14 @@ export default function RidersPage() {
   const selectedRider = ridersList.find((r) => r.id === selectedRiderId);
   const isSelected = selectedRider !== undefined;
 
+  // Sync edit state when a rider is selected
+  useEffect(() => {
+    if (selectedRider) {
+      setEditLicenseId(selectedRider.licenseId || "");
+      setEditNationalId(selectedRider.nationalId || "");
+    }
+  }, [selectedRider]);
+
   const handleStatusToggle = async () => {
     if (!selectedRiderId || !selectedRider) return;
     
@@ -107,6 +126,19 @@ export default function RidersPage() {
       riderId: selectedRiderId, 
       status: newStatus 
     }));
+  };
+
+  const handleUpdateIdentity = async () => {
+    if (!selectedRiderId) return;
+    const resultAction = await dispatch(updateRiderIdentity({
+      riderId: selectedRiderId,
+      licenseId: editLicenseId,
+      nationalId: editNationalId
+    }));
+
+    if (updateRiderIdentity.fulfilled.match(resultAction)) {
+      setIsEditingIdentity(false);
+    }
   };
 
   return (
@@ -227,42 +259,120 @@ export default function RidersPage() {
                     variant="ghost" 
                     size="icon" 
                     className="h-8 w-8 text-slate-400 hover:text-slate-600 rounded-full"
-                    onClick={() => setSelectedRiderId(null)}
+                    onClick={() => {
+                      setSelectedRiderId(null);
+                      setActiveTab('info');
+                      setIsEditingIdentity(false);
+                    }}
                   >
                     <X className="w-5 h-5" />
                   </Button>
                 </div>
               </div>
               
-              {/* Info Section */}
+              {/* Tabs */}
+              <div className="flex border-b border-gray-100">
+                <button 
+                  className={`flex-1 py-3 text-[13px] font-semibold tracking-wide uppercase transition-colors ${activeTab === 'info' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                  onClick={() => setActiveTab('info')}
+                >
+                  INFO
+                </button>
+                <button 
+                  className={`flex-1 py-3 text-[13px] font-semibold tracking-wide uppercase transition-colors ${activeTab === 'vehicles' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                  onClick={() => setActiveTab('vehicles')}
+                >
+                  VEHICLES
+                </button>
+              </div>
+
+              {/* Tab Content Section */}
               <div className="p-6">
-                <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-5">
-                  INFORMATION
-                </h3>
-                
-                <div className="flex flex-col gap-4">
-                  <div className="flex justify-between items-center text-[14px]">
-                    <span className="text-slate-500 font-medium">License / National ID</span>
-                    <span className="text-slate-900 font-bold tracking-wide">{selectedRider.licenseId || 'N/A'}</span>
-                  </div>
+                {activeTab === 'info' ? (
+                  <div className="flex flex-col gap-5">
+                    <div className="flex justify-between items-center text-[14px]">
+                      <span className="text-slate-500 font-medium">Identity Info</span>
+                      {!isEditingIdentity ? (
+                        <Button variant="ghost" size="sm" onClick={() => setIsEditingIdentity(true)} className="h-6 text-[11px] px-2 text-blue-600 hover:bg-blue-50">
+                          Edit
+                        </Button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => setIsEditingIdentity(false)} className="h-6 text-[11px] px-2 text-slate-500 hover:bg-slate-100">
+                            Cancel
+                          </Button>
+                          <Button size="sm" onClick={handleUpdateIdentity} className="h-6 text-[11px] px-2 bg-blue-600 hover:bg-blue-700 text-white" disabled={isLoading}>
+                            {isLoading ? "Saving..." : "Save"}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="flex justify-between items-center text-[14px]">
-                    <span className="text-slate-500 font-medium">Phone Number</span>
-                    <span className="text-slate-900 font-bold tracking-wide">{selectedRider.user?.phone || 'N/A'}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center text-[14px]">
-                    <span className="text-slate-500 font-medium">Vehicle Plate</span>
-                    <Badge className="bg-slate-900 hover:bg-slate-800 text-white border-none rounded-md px-2 py-0.5 text-[12px] font-bold">
-                      {selectedRider.vehicles?.[0]?.vehiclePlate || 'N/A'}
-                    </Badge>
-                  </div>
+                    <div className="flex justify-between items-center text-[14px]">
+                      <span className="text-slate-500 font-medium whitespace-nowrap">National ID</span>
+                      {isEditingIdentity ? (
+                        <Input value={editNationalId} onChange={(e) => setEditNationalId(e.target.value)} className="h-8 max-w-[180px] text-right" placeholder="119..." />
+                      ) : (
+                        <span className="text-slate-900 font-bold tracking-wide">{selectedRider.nationalId || 'N/A'}</span>
+                      )}
+                    </div>
 
-                  <div className="flex justify-between items-center text-[14px]">
-                    <span className="text-slate-500 font-medium">Join Date</span>
-                    <span className="text-slate-900 font-semibold">{selectedRider.createdAt ? new Date(selectedRider.createdAt).toLocaleDateString() : 'N/A'}</span>
+                    <div className="flex justify-between items-center text-[14px]">
+                      <span className="text-slate-500 font-medium whitespace-nowrap">License ID</span>
+                      {isEditingIdentity ? (
+                         <Input value={editLicenseId} onChange={(e) => setEditLicenseId(e.target.value)} className="h-8 max-w-[180px] text-right" placeholder="License..." />
+                      ) : (
+                        <span className="text-slate-900 font-bold tracking-wide">{selectedRider.licenseId || 'N/A'}</span>
+                      )}
+                    </div>
+
+                    <div className="flex justify-between items-center text-[14px]">
+                      <span className="text-slate-500 font-medium">Phone Number</span>
+                      <span className="text-slate-900 font-bold tracking-wide">{selectedRider.user?.phone || 'N/A'}</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center text-[14px]">
+                      <span className="text-slate-500 font-medium">Vehicle Plate</span>
+                      <Badge className="bg-slate-900 hover:bg-slate-800 text-white border-none rounded-md px-2 py-0.5 text-[12px] font-bold">
+                        {selectedRider.vehicles?.[0]?.vehiclePlate || 'N/A'}
+                      </Badge>
+                    </div>
+
+                    <div className="flex justify-between items-center text-[14px]">
+                      <span className="text-slate-500 font-medium">Join Date</span>
+                      <span className="text-slate-900 font-semibold">{selectedRider.createdAt ? new Date(selectedRider.createdAt).toLocaleDateString() : 'N/A'}</span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {isFetchingVehicles ? (
+                       <div className="flex justify-center items-center py-8">
+                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                       </div>
+                    ) : selectedRiderVehicles && selectedRiderVehicles.length > 0 ? (
+                      selectedRiderVehicles.map(vehicle => (
+                        <div key={vehicle.id} className="border border-slate-100 rounded-lg p-4 flex justify-between items-center bg-slate-50/50">
+                          <div className="flex flex-col">
+                            <span className="text-[14px] font-bold text-slate-900 uppercase">{vehicle.type}</span>
+                            <span className="text-[12px] text-slate-500 font-medium">{vehicle.plate}</span>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                             <Badge variant="outline" className={`border-none px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${vehicle.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'}`}>
+                               {vehicle.isActive ? 'Active' : 'Inactive'}
+                             </Badge>
+                             <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                               Manage
+                             </Button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                       <div className="text-center py-8 text-slate-500 text-[14px]">
+                         No vehicles assigned.
+                       </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Bottom Actions */}

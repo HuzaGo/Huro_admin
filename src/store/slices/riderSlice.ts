@@ -19,6 +19,7 @@ export interface Rider {
   status: string;
   onlineStatus: string;
   licenseId: string;
+  nationalId?: string;
   user: RiderUser;
   vehicles: RiderVehicle[];
   createdAt?: string;
@@ -44,6 +45,13 @@ export interface FetchRidersParams {
   search?: string;
 }
 
+export interface Vehicle {
+  id: string;
+  type: string;
+  plate: string;
+  isActive: boolean;
+}
+
 interface RiderState {
   riders: Rider[];
   totalCount: number;
@@ -53,6 +61,8 @@ interface RiderState {
   isLoading: boolean;
   error: string | null;
   successMessage: string | null;
+  selectedRiderVehicles: Vehicle[];
+  isFetchingVehicles: boolean;
 }
 
 const initialState: RiderState = {
@@ -64,6 +74,8 @@ const initialState: RiderState = {
   isLoading: false,
   error: null,
   successMessage: null,
+  selectedRiderVehicles: [],
+  isFetchingVehicles: false,
 };
 
 export const fetchRiders = createAsyncThunk(
@@ -105,6 +117,41 @@ export const fetchRiders = createAsyncThunk(
       return data;
     } catch (error: any) {
       return rejectWithValue(error.message || 'An error occurred while fetching riders');
+    }
+  }
+);
+
+export const fetchRiderVehicles = createAsyncThunk(
+  'riders/fetchVehicles',
+  async (riderId: string, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+      if (!token) {
+        return rejectWithValue('Authentication token is missing. Please log in again.');
+      }
+
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/admin/riders/${riderId}/vehicles`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorPayload = data.error || data.message || 'Failed to fetch rider vehicles';
+        return rejectWithValue(typeof errorPayload === 'string' ? errorPayload : JSON.stringify(errorPayload));
+      }
+
+      return data;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred while fetching rider vehicles');
     }
   }
 );
@@ -181,6 +228,42 @@ export const updateRiderStatus = createAsyncThunk(
   }
 );
 
+export const updateRiderIdentity = createAsyncThunk(
+  'riders/updateIdentity',
+  async ({ riderId, nationalId, licenseId }: { riderId: string; nationalId: string; licenseId: string }, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+      if (!token) {
+        return rejectWithValue('Authentication token is missing. Please log in again.');
+      }
+
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/admin/riders/${riderId}/identity`;
+
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ nationalId, licenseId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorPayload = data.error || data.message || 'Failed to update rider identity';
+        return rejectWithValue(typeof errorPayload === 'string' ? errorPayload : JSON.stringify(errorPayload));
+      }
+
+      return { riderId, nationalId, licenseId, data };
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred while updating rider identity');
+    }
+  }
+);
+
 const riderSlice = createSlice({
   name: 'riders',
   initialState,
@@ -231,6 +314,23 @@ const riderSlice = createSlice({
         state.isFetching = false;
         state.error = action.payload as string;
       })
+      // Fetch Rider Vehicles
+      .addCase(fetchRiderVehicles.pending, (state) => {
+        state.isFetchingVehicles = true;
+        state.error = null;
+      })
+      .addCase(fetchRiderVehicles.fulfilled, (state, action) => {
+        state.isFetchingVehicles = false;
+        let rawData = action.payload;
+        if (rawData?.data) {
+          rawData = rawData.data;
+        }
+        state.selectedRiderVehicles = Array.isArray(rawData) ? rawData : [];
+      })
+      .addCase(fetchRiderVehicles.rejected, (state, action) => {
+        state.isFetchingVehicles = false;
+        state.error = action.payload as string;
+      })
       // Create Rider
       .addCase(createRider.pending, (state) => {
         state.isLoading = true;
@@ -260,6 +360,25 @@ const riderSlice = createSlice({
         }
       })
       .addCase(updateRiderStatus.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Update Rider Identity
+      .addCase(updateRiderIdentity.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+        state.successMessage = null;
+      })
+      .addCase(updateRiderIdentity.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.successMessage = 'Rider identity updated successfully!';
+        const index = state.riders.findIndex((r) => r.id === action.payload.riderId);
+        if (index !== -1) {
+          state.riders[index].nationalId = action.payload.nationalId;
+          state.riders[index].licenseId = action.payload.licenseId;
+        }
+      })
+      .addCase(updateRiderIdentity.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       });
