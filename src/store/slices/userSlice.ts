@@ -58,7 +58,7 @@ export const fetchUsers = createAsyncThunk(
 
       const qs = searchParams.toString();
       // Using identical setup pattern from seller and riders
-      const url = `${process.env.NEXT_PUBLIC_API_URL || 'https://huzago-backend.onrender.com'}/api/v1/admin/users${qs ? `?${qs}` : ''}`; 
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/admin/users${qs ? `?${qs}` : ''}`; 
 
       const response = await fetch(url, {
         method: 'GET',
@@ -78,6 +78,86 @@ export const fetchUsers = createAsyncThunk(
       return data;
     } catch (error: any) {
       return rejectWithValue(error.message || 'An error occurred while fetching users');
+    }
+  }
+);
+
+export interface UpdateUserStatusParams {
+  userId: string;
+  isActive: boolean;
+}
+
+
+export const updateUserStatus = createAsyncThunk(
+  'users/updateStatus',
+  async (params: UpdateUserStatusParams, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+      if (!token) {
+        return rejectWithValue('Authentication token is missing. Please log in again.');
+      }
+
+      // Use construct the endpoint specifically based on target status
+      // If we are suspending (isActive is false). If reactivating, we assume the endpoint is reactivate.
+      const action = params.isActive ? 'reactivate' : 'suspend';
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/admin/users/${params.userId}/${action}`;
+
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorPayload = data.error || data.message || 'Failed to update user status';
+        return rejectWithValue(typeof errorPayload === 'string' ? errorPayload : JSON.stringify(errorPayload));
+      }
+
+      // Return the ID and new status to update the local state without refetching the whole list
+      return { id: params.userId, isActive: params.isActive };
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred while updating user status');
+    }
+  }
+);
+
+export const deleteUser = createAsyncThunk(
+  'users/delete',
+  async (userId: string, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+      if (!token) {
+        return rejectWithValue('Authentication token is missing. Please log in again.');
+      }
+
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/admin/users/${userId}`;
+
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorPayload = data.error || data.message || 'Failed to delete user';
+        return rejectWithValue(typeof errorPayload === 'string' ? errorPayload : JSON.stringify(errorPayload));
+      }
+
+      return userId;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred while deleting user');
     }
   }
 );
@@ -103,6 +183,8 @@ const userSlice = createSlice({
         let usersArray: User[] = [];
         if (Array.isArray(rawData)) {
           usersArray = rawData;
+        } else if (rawData && Array.isArray(rawData.data)) {
+          usersArray = rawData.data;
         } else if (rawData && Array.isArray(rawData.items)) {
           usersArray = rawData.items;
         } else if (rawData && Array.isArray(rawData.users)) {
@@ -119,6 +201,16 @@ const userSlice = createSlice({
       .addCase(fetchUsers.rejected, (state, action) => {
         state.isFetching = false;
         state.error = action.payload as string;
+      })
+      .addCase(updateUserStatus.fulfilled, (state, action) => {
+        const index = state.usersList.findIndex((u) => u.id === action.payload.id);
+        if (index !== -1) {
+          state.usersList[index].isActive = action.payload.isActive;
+        }
+      })
+      .addCase(deleteUser.fulfilled, (state, action) => {
+        state.usersList = state.usersList.filter((u) => u.id !== action.payload);
+        state.totalCount = Math.max(0, state.totalCount - 1);
       });
   },
 });

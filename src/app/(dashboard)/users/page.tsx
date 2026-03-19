@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchUsers } from "@/store/slices/userSlice";
-import { Search, Plus, X, Mail, Phone, Calendar, User as UserIcon, ShieldAlert, ShoppingBag } from "lucide-react";
+import { fetchUsers, updateUserStatus, deleteUser } from "@/store/slices/userSlice";
+import { Search, Plus, X, Mail, Phone, Calendar, User as UserIcon, ShieldAlert, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -78,6 +78,20 @@ export default function UsersPage() {
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
     dispatch(fetchUsers({ page: 1, limit: 20, search: e.target.value }));
+  };
+
+  const handleToggleStatus = (userId: string, currentStatus: boolean) => {
+    // Assuming backend takes { isActive: boolean } in a standard PATCH payload
+    dispatch(updateUserStatus({ userId, isActive: !currentStatus }));
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    if (window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
+      dispatch(deleteUser(userId));
+      if (selectedUserId === userId) {
+        setSelectedUserId(null); // Close the side panel if the deleted user was selected
+      }
+    }
   };
 
   const selectedUser = usersList.find(u => u.id === selectedUserId);
@@ -249,15 +263,29 @@ export default function UsersPage() {
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-col">
               <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white">
                 <Mail className="h-4 w-4 mr-2" />
                 Message
               </Button>
-              <Button variant="outline" className={`w-full ${selectedUser.isActive ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-green-600 border-green-200 hover:bg-green-50'}`}>
-                <ShieldAlert className="h-4 w-4 mr-2" />
-                {selectedUser.isActive ? 'Suspend' : 'Activate'}
-              </Button>
+              <div className="flex gap-2 w-full">
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleToggleStatus(selectedUser.id, selectedUser.isActive)}
+                  className={`flex-1 ${selectedUser.isActive ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-green-600 border-green-200 hover:bg-green-50'}`}
+                >
+                  <ShieldAlert className="h-4 w-4 mr-2" />
+                  {selectedUser.isActive ? 'Suspend' : 'Activate'}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleDeleteUser(selectedUser.id)}
+                  className="flex-none px-4 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                  title="Delete User"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <Separator className="bg-gray-100" />
