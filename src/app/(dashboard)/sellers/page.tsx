@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Plus, Store, X, MapPin, User, ExternalLink, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -15,6 +17,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchSellers, createSeller, clearSellerMessages } from "@/store/slices/sellerSlice";
 
 // Mock data based on the provided screenshot
 const sellers = [
@@ -55,8 +66,67 @@ const sellers = [
 
 export default function SellersPage() {
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  const selectedSeller = sellers.find(s => s.id === selectedSellerId);
+  // Form states
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [phone, setPhone] = useState("");
+  const [pickupLocationName, setPickupLocationName] = useState("");
+  const [pickupLocationNote, setPickupLocationNote] = useState("");
+  const [pickupLocationUrl, setPickupLocationUrl] = useState("");
+  const [pickupLatitude, setPickupLatitude] = useState("");
+  const [pickupLongitude, setPickupLongitude] = useState("");
+
+  const dispatch = useAppDispatch();
+  const { sellers: sellersList, isFetching, isLoading, error, successMessage } = useAppSelector((state) => state.sellers);
+
+  useEffect(() => {
+    dispatch(fetchSellers({ page: 1, limit: 20 }));
+    return () => { dispatch(clearSellerMessages()); };
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (!isSheetOpen) {
+      setTimeout(() => {
+        setName("");
+        setDescription("");
+        setLogoUrl("");
+        setPhone("");
+        setPickupLocationName("");
+        setPickupLocationNote("");
+        setPickupLocationUrl("");
+        setPickupLatitude("");
+        setPickupLongitude("");
+        dispatch(clearSellerMessages());
+      }, 300);
+    }
+  }, [isSheetOpen, dispatch]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload = {
+      sellerName: name,
+      description,
+      logoUrl,
+      phone,
+      pickupLocationName,
+      pickupLocationNote,
+      pickupLocationUrl,
+      pickupLatitude: parseFloat(pickupLatitude) || 0,
+      pickupLongitude: parseFloat(pickupLongitude) || 0,
+    };
+
+    const resultAction = await dispatch(createSeller(payload));
+    if (createSeller.fulfilled.match(resultAction)) {
+      setIsSheetOpen(false);
+      dispatch(fetchSellers({ page: 1, limit: 20 }));
+    }
+  };
+
+  const selectedSeller = sellersList.find(s => s.id === selectedSellerId); // fallback for API seller
+  const selectedMockSeller = sellers.find(s => s.id === selectedSellerId); // fallback for mock details in the UI
 
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-gray-50/50">
@@ -79,7 +149,7 @@ export default function SellersPage() {
                   className="pl-9 bg-white"
                 />
               </div>
-              <Button className="bg-blue-500 hover:bg-blue-600 text-white">
+              <Button onClick={() => setIsSheetOpen(true)} className="bg-blue-500 hover:bg-blue-600 text-white">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Seller
               </Button>
@@ -99,7 +169,21 @@ export default function SellersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sellers.map((seller) => (
+                {isFetching ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                      <div className="flex justify-center items-center h-full">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : sellersList.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center text-slate-500">
+                      No sellers found.
+                    </TableCell>
+                  </TableRow>
+                ) : sellersList.map((seller) => (
                   <TableRow 
                     key={seller.id}
                     onClick={() => setSelectedSellerId(seller.id === selectedSellerId ? null : seller.id)}
@@ -107,8 +191,6 @@ export default function SellersPage() {
                       selectedSellerId === seller.id ? 'bg-blue-50/50 relative' : ''
                     }`}
                   >
-                    {/* Active row indicator styled perfectly for light mode */}
-                    
                     <TableCell className="py-4 relative">
                       {selectedSellerId === seller.id && (
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />
@@ -117,20 +199,20 @@ export default function SellersPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-100 font-normal">
-                        {seller.category}
+                        {'Category'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center font-medium text-gray-600">
-                      {seller.products}
+                      {0}
                     </TableCell>
                     <TableCell className="text-center font-medium text-gray-600">
-                      {seller.ordersToday}
+                      {0}
                     </TableCell>
                     <TableCell className="text-right pr-6">
                       <div className="flex items-center justify-end gap-1.5">
                         <div className={`h-2 w-2 rounded-full ${seller.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-300'}`} />
                         <span className={`text-sm font-medium ${seller.status === 'ACTIVE' ? 'text-green-600' : 'text-gray-500'}`}>
-                          {seller.status}
+                          {seller.status || 'ACTIVE'}
                         </span>
                       </div>
                     </TableCell>
@@ -174,13 +256,13 @@ export default function SellersPage() {
                 <span className="text-gray-500 flex items-center gap-2">
                   <User className="h-4 w-4" /> Owner
                 </span>
-                <span className="font-medium text-gray-900">{selectedSeller.owner}</span>
+                <span className="font-medium text-gray-900">{selectedMockSeller?.owner || 'Unknown'}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500 flex items-center gap-2">
                   <MapPin className="h-4 w-4" /> Location
                 </span>
-                <span className="font-medium text-blue-600">{selectedSeller.location}</span>
+                <span className="font-medium text-blue-600">{selectedSeller.pickupLocationName || selectedMockSeller?.location || 'N/A'}</span>
               </div>
             </div>
 
@@ -201,7 +283,7 @@ export default function SellersPage() {
             <div>
               <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Product Inventory</h4>
               <div className="space-y-3">
-                {selectedSeller.inventory.map((item) => (
+                {(selectedMockSeller?.inventory || []).map((item) => (
                   <div key={item.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-white">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 bg-gray-100 rounded-md flex items-center justify-center shrink-0">
@@ -236,6 +318,136 @@ export default function SellersPage() {
           </div>
         </div>
       )}
+
+      {/* Add Seller Form */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent className="overflow-y-auto w-full sm:max-w-md px-6" side="right">
+          <SheetHeader>
+            <SheetTitle>Add New Seller</SheetTitle>
+            <SheetDescription>
+              Register a new seller by filling out the basic profile and pickup information below.
+            </SheetDescription>
+          </SheetHeader>
+
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm mt-4">
+              {error}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="bg-green-50 text-green-600 p-3 rounded-md text-sm mt-4">
+              {successMessage}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4 pb-10">
+            <div className="space-y-2">
+              <Label htmlFor="name">Business Name</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Main Canteen"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Short description of the seller"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="logoUrl">Logo URL</Label>
+              <Input
+                id="logoUrl"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="https://example.com/logo.png"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+250788000000"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pickupLocationName">Pickup Location Name</Label>
+              <Input
+                id="pickupLocationName"
+                value={pickupLocationName}
+                onChange={(e) => setPickupLocationName(e.target.value)}
+                placeholder="E.g., KG 11 Ave"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pickupLocationNote">Pickup Location Note</Label>
+              <Input
+                id="pickupLocationNote"
+                value={pickupLocationNote}
+                onChange={(e) => setPickupLocationNote(e.target.value)}
+                placeholder="Near the main gate..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pickupLocationUrl">Pickup Location Map URL</Label>
+              <Input
+                id="pickupLocationUrl"
+                value={pickupLocationUrl}
+                onChange={(e) => setPickupLocationUrl(e.target.value)}
+                placeholder="https://maps.google.com/..."
+              />
+            </div>
+
+            <div className="flex gap-4">
+              <div className="space-y-2 flex-1">
+                <Label htmlFor="pickupLatitude">Latitude</Label>
+                <Input
+                  id="pickupLatitude"
+                  type="number"
+                  step="any"
+                  value={pickupLatitude}
+                  onChange={(e) => setPickupLatitude(e.target.value)}
+                  placeholder="-1.95"
+                  required
+                />
+              </div>
+              <div className="space-y-2 flex-1">
+                <Label htmlFor="pickupLongitude">Longitude</Label>
+                <Input
+                  id="pickupLongitude"
+                  type="number"
+                  step="any"
+                  value={pickupLongitude}
+                  onChange={(e) => setPickupLongitude(e.target.value)}
+                  placeholder="30.06"
+                  required
+                />
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-6" disabled={isLoading}>
+              {isLoading ? "Creating..." : "Save Seller"}
+            </Button>
+          </form>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
