@@ -5,6 +5,7 @@ export interface Product {
   name: string;
   description: string;
   categoryId: string;
+  sellerId?: string;
   price: number;
   stockQuantity: number;
   lowStockThreshold: number;
@@ -22,6 +23,7 @@ export interface CreateProductPayload {
   name: string;
   description: string;
   categoryId: string;
+  sellerId: string;
   price: number;
   stockQuantity: number;
   lowStockThreshold: number;
@@ -38,6 +40,7 @@ export interface UpdateProductPayload {
   name?: string;
   description?: string;
   categoryId?: string;
+  sellerId?: string;
   price?: number;
   stockQuantity?: number;
   lowStockThreshold?: number;

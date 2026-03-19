@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
 import { fetchCategories } from "@/store/slices/categorySlice"
+import { fetchSellers } from "@/store/slices/sellerSlice"
 import { createProduct, updateProduct, deleteProduct, fetchProducts, clearProductMessages, Product } from "@/store/slices/productSlice"
 import { Button } from "@/components/ui/button"
 import {
@@ -48,6 +49,7 @@ export default function ProductsPage() {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [categoryId, setCategoryId] = useState("")
+  const [sellerId, setSellerId] = useState("")
   const [price, setPrice] = useState<number>(0)
   const [stockQuantity, setStockQuantity] = useState<number>(0)
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(0)
@@ -62,12 +64,18 @@ export default function ProductsPage() {
   const { categories } = useAppSelector((state) => state.categories)
   const categoryList = Array.isArray(categories) ? categories : []
   
+  const { sellers } = useAppSelector((state) => state.sellers)
+  const sellerList = Array.isArray(sellers) ? sellers : []
+  
   const { products, isFetching, isLoading, error, successMessage } = useAppSelector((state) => state.products)
   const productList = Array.isArray(products) ? products : []
 
   useEffect(() => {
     // Fetch categories to populate the dropdown
     dispatch(fetchCategories())
+    
+    // Fetch sellers to populate the dropdown
+    dispatch(fetchSellers({ limit: 100 })) // Assuming we want enough to pick from
     
     // Fetch products
     dispatch(fetchProducts({ page: 1, limit: 20, sortBy: 'newest' }))
@@ -86,6 +94,7 @@ export default function ProductsPage() {
         setName("")
         setDescription("")
         setCategoryId("")
+        setSellerId("")
         setPrice(0)
         setStockQuantity(0)
         setLowStockThreshold(0)
@@ -105,6 +114,7 @@ export default function ProductsPage() {
     setName(product.name || "")
     setDescription(product.description || "")
     setCategoryId(product.categoryId || "")
+    setSellerId(product.sellerId || "")
     setPrice(product.price ?? 0)
     setStockQuantity(product.stockQuantity ?? 0)
     setLowStockThreshold(product.lowStockThreshold ?? 0)
@@ -125,6 +135,7 @@ export default function ProductsPage() {
       name,
       description,
       categoryId,
+      sellerId,
       price: Number(price) || 0,
       stockQuantity: Number(stockQuantity) || 0,
       lowStockThreshold: Number(lowStockThreshold) || 0,
@@ -232,6 +243,22 @@ export default function ProductsPage() {
                         {categoryList.map((category) => (
                           <SelectItem key={category.id} value={category.id}>
                             {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="sellerId">Seller <span className="text-red-500">*</span></Label>
+                    <Select value={sellerId} onValueChange={(val) => setSellerId(val || "")} disabled={isLoading} required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a seller" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sellerList.map((seller) => (
+                          <SelectItem key={seller.id} value={seller.id}>
+                            {seller.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
