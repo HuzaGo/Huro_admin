@@ -1,13 +1,26 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
-export interface Rider {
+export interface RiderUser {
   id: string;
   fullName: string;
   email: string;
-  phone: string;
-  vehicleType: string;
-  vehiclePlate: string;
-  nationalId: string;
+  phone?: string;
+}
+
+export interface RiderVehicle {
+  id?: string;
+  vehicleType?: string;
+  vehiclePlate?: string;
+  [key: string]: any;
+}
+
+export interface Rider {
+  id: string;
+  status: string;
+  onlineStatus: string;
+  licenseId: string;
+  user: RiderUser;
+  vehicles: RiderVehicle[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -19,12 +32,15 @@ export interface CreateRiderPayload {
   password?: string;
   vehicleType: string;
   vehiclePlate: string;
+  licenseId: string;
   nationalId: string;
 }
 
 export interface FetchRidersParams {
   page?: number;
   limit?: number;
+  status?: 'APPROVED' | 'SUSPENDED' | 'PENDING';
+  onlineStatus?: 'ONLINE' | 'OFFLINE';
   search?: string;
 }
 
@@ -64,6 +80,8 @@ export const fetchRiders = createAsyncThunk(
       const searchParams = new URLSearchParams();
       if (params.page !== undefined) searchParams.append('page', params.page.toString());
       if (params.limit !== undefined) searchParams.append('limit', params.limit.toString());
+      if (params.status) searchParams.append('status', params.status);
+      if (params.onlineStatus) searchParams.append('onlineStatus', params.onlineStatus);
       if (params.search) searchParams.append('search', params.search);
 
       const qs = searchParams.toString();
@@ -123,6 +141,42 @@ export const createRider = createAsyncThunk(
       return data;
     } catch (error: any) {
       return rejectWithValue(error.message || 'An error occurred while creating rider');
+    }
+  }
+);
+
+export const updateRiderStatus = createAsyncThunk(
+  'riders/updateStatus',
+  async ({ riderId, status, note }: { riderId: string; status: 'APPROVED' | 'SUSPENDED'; note?: string }, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+      if (!token) {
+        return rejectWithValue('Authentication token is missing. Please log in again.');
+      }
+
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/admin/riders/${riderId}/status`;
+
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status, note }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorPayload = data.error || data.message || 'Failed to update rider status';
+        return rejectWithValue(typeof errorPayload === 'string' ? errorPayload : JSON.stringify(errorPayload));
+      }
+
+      return { riderId, status, data };
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred while updating rider status');
     }
   }
 );
@@ -188,6 +242,24 @@ const riderSlice = createSlice({
         state.successMessage = action.payload?.message || 'Rider created successfully!';
       })
       .addCase(createRider.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Update Rider Status
+      .addCase(updateRiderStatus.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+        state.successMessage = null;
+      })
+      .addCase(updateRiderStatus.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.successMessage = 'Rider status updated successfully!';
+        const index = state.riders.findIndex((r) => r.id === action.payload.riderId);
+        if (index !== -1) {
+          state.riders[index].status = action.payload.status;
+        }
+      })
+      .addCase(updateRiderStatus.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       });

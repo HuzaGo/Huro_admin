@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchRiders, createRider, clearRiderMessages } from "@/store/slices/riderSlice";
+import { fetchRiders, createRider, updateRiderStatus, clearRiderMessages } from "@/store/slices/riderSlice";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,8 +41,9 @@ export default function RidersPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [vehicleType, setVehicleType] = useState("motorcycle");
+  const [vehicleType, setVehicleType] = useState("MOTORCYCLE");
   const [vehiclePlate, setVehiclePlate] = useState("");
+  const [licenseId, setLicenseId] = useState("");
   const [nationalId, setNationalId] = useState("");
 
   const dispatch = useAppDispatch();
@@ -64,8 +65,9 @@ export default function RidersPage() {
         setEmail("");
         setPhone("");
         setPassword("");
-        setVehicleType("motorcycle");
+        setVehicleType("MOTORCYCLE");
         setVehiclePlate("");
+        setLicenseId("");
         setNationalId("");
         dispatch(clearRiderMessages());
       }, 300);
@@ -82,6 +84,7 @@ export default function RidersPage() {
       password: password || undefined,
       vehicleType,
       vehiclePlate,
+      licenseId,
       nationalId,
     };
 
@@ -95,6 +98,16 @@ export default function RidersPage() {
 
   const selectedRider = ridersList.find((r) => r.id === selectedRiderId);
   const isSelected = selectedRider !== undefined;
+
+  const handleStatusToggle = async () => {
+    if (!selectedRiderId || !selectedRider) return;
+    
+    const newStatus = selectedRider.status === 'SUSPENDED' ? 'APPROVED' : 'SUSPENDED';
+    await dispatch(updateRiderStatus({ 
+      riderId: selectedRiderId, 
+      status: newStatus 
+    }));
+  };
 
   return (
     <div className="flex flex-col gap-6 max-w-350 mx-auto">
@@ -164,24 +177,24 @@ export default function RidersPage() {
                             <div className="absolute left-0 top-0 -bottom-px w-0.75 bg-blue-500 z-10" />
                           )}
                           <div className="flex flex-col leading-tight">
-                            <span className="font-bold text-slate-900 text-[15px]">{rider.fullName}</span>
-                            <span className="text-slate-500 text-[13px]">{rider.email}</span>
+                            <span className="font-bold text-slate-900 text-[15px]">{rider.user?.fullName || 'N/A'}</span>
+                            <span className="text-slate-500 text-[13px]">{rider.user?.email || 'N/A'}</span>
                           </div>
                         </TableCell>
                         <TableCell className="py-5">
                           <span className="font-medium text-slate-700 text-[14px]">
-                            {rider.phone}
+                            {rider.user?.phone || 'N/A'}
                           </span>
                         </TableCell>
                         <TableCell className="py-5">
                           <div className="flex flex-col leading-tight">
-                            <span className="font-semibold text-slate-900 text-[14px] uppercase">{rider.vehicleType}</span>
-                            <span className="text-slate-500 text-[13px]">{rider.vehiclePlate}</span>
+                            <span className="font-semibold text-slate-900 text-[14px] uppercase">{rider.vehicles?.[0]?.vehicleType || 'N/A'}</span>
+                            <span className="text-slate-500 text-[13px]">{rider.vehicles?.[0]?.vehiclePlate || 'N/A'}</span>
                           </div>
                         </TableCell>
                         <TableCell className="py-5 pr-6 text-right">
                           <span className="font-bold text-slate-900 text-[14px]">
-                            {rider.nationalId}
+                            {rider.licenseId || 'N/A'}
                           </span>
                         </TableCell>
                       </TableRow>
@@ -202,13 +215,13 @@ export default function RidersPage() {
               <div className="p-6 relative border-b border-gray-100">
                 <div className="flex items-center gap-3 mb-1.5 wrap-break-word max-w-[85%]">
                   <h2 className="text-[22px] font-bold text-slate-900 leading-tight">
-                    {selectedRider.fullName}
+                    {selectedRider.user?.fullName || 'N/A'}
                   </h2>
                   <Badge variant="secondary" className="bg-blue-400 text-white hover:bg-blue-500 border-none font-bold uppercase tracking-wider text-[10px] px-2 py-0.5">
-                    Active
+                    {selectedRider.status || 'Active'}
                   </Badge>
                 </div>
-                <p className="text-[13px] font-medium text-slate-500">{selectedRider.email}</p>
+                <p className="text-[13px] font-medium text-slate-500">{selectedRider.user?.email || 'N/A'}</p>
                 <div className="absolute right-4 top-5">
                   <Button 
                     variant="ghost" 
@@ -229,19 +242,19 @@ export default function RidersPage() {
                 
                 <div className="flex flex-col gap-4">
                   <div className="flex justify-between items-center text-[14px]">
-                    <span className="text-slate-500 font-medium">National ID</span>
-                    <span className="text-slate-900 font-bold tracking-wide">{selectedRider.nationalId}</span>
+                    <span className="text-slate-500 font-medium">License / National ID</span>
+                    <span className="text-slate-900 font-bold tracking-wide">{selectedRider.licenseId || 'N/A'}</span>
                   </div>
 
                   <div className="flex justify-between items-center text-[14px]">
                     <span className="text-slate-500 font-medium">Phone Number</span>
-                    <span className="text-slate-900 font-bold tracking-wide">{selectedRider.phone}</span>
+                    <span className="text-slate-900 font-bold tracking-wide">{selectedRider.user?.phone || 'N/A'}</span>
                   </div>
                   
                   <div className="flex justify-between items-center text-[14px]">
                     <span className="text-slate-500 font-medium">Vehicle Plate</span>
                     <Badge className="bg-slate-900 hover:bg-slate-800 text-white border-none rounded-md px-2 py-0.5 text-[12px] font-bold">
-                      {selectedRider.vehiclePlate}
+                      {selectedRider.vehicles?.[0]?.vehiclePlate || 'N/A'}
                     </Badge>
                   </div>
 
@@ -263,9 +276,14 @@ export default function RidersPage() {
                     <History className="w-4 h-4 mr-2 text-slate-600" />
                     History
                   </Button>
-                  <Button variant="outline" className="w-full text-red-600 font-bold border-red-100 bg-red-50/50 hover:bg-red-50 hover:text-red-700 h-11 rounded-lg">
+                  <Button 
+                    variant="outline" 
+                    className={`w-full font-bold h-11 rounded-lg ${selectedRider.status === 'SUSPENDED' ? 'text-green-600 border-green-100 bg-green-50/50 hover:bg-green-50 hover:text-green-700' : 'text-red-600 border-red-100 bg-red-50/50 hover:bg-red-50 hover:text-red-700'}`}
+                    onClick={handleStatusToggle}
+                    disabled={isLoading}
+                  >
                     <Ban className="w-4 h-4 mr-2" />
-                    Suspend
+                    {selectedRider.status === 'SUSPENDED' ? 'Approve' : 'Suspend'}
                   </Button>
                 </div>
               </div>
@@ -346,15 +364,15 @@ export default function RidersPage() {
 
             <div className="space-y-2">
               <Label htmlFor="vehicleType">Vehicle Type</Label>
-              <Select value={vehicleType} onValueChange={(val) => setVehicleType(val || "motorcycle")}>
+              <Select value={vehicleType} onValueChange={(val) => setVehicleType(val || "MOTORCYCLE")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select vehicle type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="motorcycle">Motorcycle</SelectItem>
-                  <SelectItem value="bicycle">Bicycle</SelectItem>
-                  <SelectItem value="car">Car</SelectItem>
-                  <SelectItem value="van">Van</SelectItem>
+                  <SelectItem value="MOTORCYCLE">Motorcycle</SelectItem>
+                  <SelectItem value="BICYCLE">Bicycle</SelectItem>
+                  <SelectItem value="CAR">Car</SelectItem>
+                  <SelectItem value="VAN">Van</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -365,7 +383,18 @@ export default function RidersPage() {
                 id="vehiclePlate"
                 value={vehiclePlate}
                 onChange={(e) => setVehiclePlate(e.target.value)}
-                placeholder="RAE 123A"
+                placeholder="RAD 123A"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="licenseId">License ID</Label>
+              <Input
+                id="licenseId"
+                value={licenseId}
+                onChange={(e) => setLicenseId(e.target.value)}
+                placeholder="License number..."
                 required
               />
             </div>
