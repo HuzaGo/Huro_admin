@@ -115,7 +115,7 @@ export default function OrdersPage() {
                 <label className="text-xs font-semibold text-slate-500">Status</label>
                 <Select
                   value={statusFilter}
-                  onValueChange={(v) => { setStatusFilter(v); setPage(1); }}
+                  onValueChange={(v) => { setStatusFilter(v ?? "all"); setPage(1); }}
                 >
                   <SelectTrigger className="bg-slate-50 border-gray-200">
                     <SelectValue placeholder="Select status" />
