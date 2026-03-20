@@ -11,14 +11,14 @@ interface Category {
 
 interface CreateCategoryPayload {
   name: string;
-  iconUrl?: string;
+  iconFile?: File;
   sortOrder?: number;
 }
 
 interface UpdateCategoryPayload {
   categoryId: string;
   name: string;
-  iconUrl?: string;
+  iconFile?: File;
   sortOrder?: number;
   isActive?: boolean;
 }
@@ -74,13 +74,14 @@ export const createCategory = createAsyncThunk(
         return rejectWithValue('Authentication token is missing. Please log in again.');
       }
 
+      const formData = new FormData();
+      formData.append('name', payload.name);
+      if (payload.iconFile) formData.append('icon', payload.iconFile);
+
       const response = await fetch('/api/v1/categories', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
       });
 
       const data = await response.json();
@@ -107,15 +108,16 @@ export const updateCategory = createAsyncThunk(
         return rejectWithValue('Authentication token is missing. Please log in again.');
       }
 
-      const { categoryId, ...updateData } = payload;
+      const { categoryId, iconFile, ...rest } = payload;
+      const formData = new FormData();
+      formData.append('name', rest.name);
+      if (rest.isActive !== undefined) formData.append('isActive', String(rest.isActive));
+      if (iconFile) formData.append('icon', iconFile);
 
       const response = await fetch(`/api/v1/categories/${categoryId}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(updateData),
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
       });
 
       const data = await response.json();

@@ -20,7 +20,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Pencil, Trash2, ImagePlus, X } from "lucide-react"
+import { useRef } from "react"
 import {
   Sheet,
   SheetContent,
@@ -35,9 +36,11 @@ export default function CategoriesPage() {
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   
   const [name, setName] = useState("")
-  const [iconUrl, setIconUrl] = useState("")
+  const [iconFile, setIconFile] = useState<File | null>(null)
+  const [iconPreview, setIconPreview] = useState<string | null>(null)
   const [sortOrder, setSortOrder] = useState<number>(0)
   const [isActive, setIsActive] = useState<boolean>(true)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   
   const dispatch = useAppDispatch()
   const { categories, isFetching, isLoading, error, successMessage } = useAppSelector((state) => state.categories)
@@ -58,7 +61,8 @@ export default function CategoriesPage() {
       setTimeout(() => {
         setEditingCategoryId(null)
         setName("")
-        setIconUrl("")
+        setIconFile(null)
+        setIconPreview(null)
         setSortOrder(0)
         setIsActive(true)
         dispatch(clearCategoryMessages())
@@ -69,34 +73,31 @@ export default function CategoriesPage() {
   const handleEditClick = (category: any) => {
     setEditingCategoryId(category.id)
     setName(category.name)
-    setIconUrl(category.iconUrl || "")
+    setIconFile(null)
+    setIconPreview(category.iconUrl || null)
     setSortOrder(category.sortOrder || 0)
-    setIsActive(category.isActive !== false) // Default to true if undefined
+    setIsActive(category.isActive !== false)
     setIsSheetOpen(true)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
-    
+
     let resultAction;
     if (editingCategoryId) {
-      resultAction = await dispatch(updateCategory({ categoryId: editingCategoryId, name, iconUrl, sortOrder, isActive }))
+      resultAction = await dispatch(updateCategory({ categoryId: editingCategoryId, name, iconFile: iconFile ?? undefined, sortOrder, isActive }))
     } else {
-      resultAction = await dispatch(createCategory({ name, iconUrl, sortOrder }))
+      resultAction = await dispatch(createCategory({ name, iconFile: iconFile ?? undefined, sortOrder }))
     }
-    
+
     if (createCategory.fulfilled.match(resultAction) || updateCategory.fulfilled.match(resultAction)) {
-      // clear form on success
       setName("")
-      setIconUrl("")
+      setIconFile(null)
+      setIconPreview(null)
       setSortOrder(0)
       setIsActive(true)
       setEditingCategoryId(null)
-      
-      // close the sheet
       setIsSheetOpen(false)
-      
-      // refresh categories list
       dispatch(fetchCategories())
     }
   }
@@ -160,28 +161,45 @@ export default function CategoriesPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="iconUrl" className="text-sm font-medium">Icon URL</label>
-                  <Input
-                    id="iconUrl"
-                    placeholder="https://example.com/icon.png"
-                    value={iconUrl}
-                    onChange={(e) => setIconUrl(e.target.value)}
+                  <label className="text-sm font-medium">Icon Image</label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      setIconFile(file);
+                      setIconPreview(file ? URL.createObjectURL(file) : null);
+                    }}
                     disabled={isLoading}
                   />
+                  {iconPreview ? (
+                    <div className="relative w-20 h-20">
+                      <img src={iconPreview} alt="Icon preview" className="w-20 h-20 rounded-lg object-cover border border-gray-200" />
+                      <button
+                        type="button"
+                        onClick={() => { setIconFile(null); setIconPreview(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                        className="absolute -top-2 -right-2 bg-white rounded-full border border-gray-200 shadow p-0.5 text-gray-500 hover:text-red-500"
+                        disabled={isLoading}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isLoading}
+                      className="flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors w-full justify-center"
+                    >
+                      <ImagePlus className="w-4 h-4" />
+                      Upload icon image
+                    </button>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="sortOrder" className="text-sm font-medium">Sort Order</label>
-                  <Input
-                    id="sortOrder"
-                    type="number"
-                    value={sortOrder}
-                    onChange={(e) => setSortOrder(parseInt(e.target.value) || 0)}
-                    disabled={isLoading}
-                  />
-                </div>
-
-                {editingCategoryId && (
+{editingCategoryId && (
                   <div className="space-y-2 flex items-center gap-2 pt-2">
                     <input
                       type="checkbox"
