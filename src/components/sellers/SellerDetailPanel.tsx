@@ -4,6 +4,7 @@ import { Plus, Store, X, MapPin, ExternalLink, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SellerProductItem } from "@/components/sellers/SellerProductItem";
+import { AssignProductSheet } from "@/components/sellers/AssignProductSheet";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { deleteSeller } from "@/store/slices/sellerSlice";
 import type { Seller, SellerProduct } from "@/store/slices/sellerSlice";
@@ -20,6 +21,7 @@ export function SellerDetailPanel({ seller, products, isFetchingProducts, produc
   const dispatch = useAppDispatch();
   const { isDeleting, deleteError } = useAppSelector((s) => s.sellers);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
 
   const handleDelete = async () => {
     const result = await dispatch(deleteSeller(seller.id));
@@ -60,7 +62,7 @@ export function SellerDetailPanel({ seller, products, isFetchingProducts, produc
 
         {/* Actions */}
         <div className="flex gap-3 flex-col">
-          <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white">
+          <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white" onClick={() => setIsAssignOpen(true)}>
             <Plus className="h-4 w-4 mr-2" /> Add Product
           </Button>
 
@@ -122,6 +124,12 @@ export function SellerDetailPanel({ seller, products, isFetchingProducts, produc
           )}
         </div>
       </div>
+
+      <AssignProductSheet
+        sellerId={seller.id}
+        open={isAssignOpen}
+        onOpenChange={setIsAssignOpen}
+      />
 
       {/* Footer */}
       <div className="p-4 border-t border-gray-100 bg-gray-50/50 text-center">

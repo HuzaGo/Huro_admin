@@ -64,8 +64,8 @@ export function SellersTable({ sellers, isFetching, selectedSellerId, onSelect }
                   Category
                 </Badge>
               </TableCell>
-              <TableCell className="text-center font-medium text-gray-600">{0}</TableCell>
-              <TableCell className="text-center font-medium text-gray-600">{0}</TableCell>
+              <TableCell className="text-center font-medium text-gray-600">{seller.products ?? 0}</TableCell>
+              <TableCell className="text-center font-medium text-gray-600">—</TableCell>
               <TableCell className="text-right pr-6">
                 <div className="flex items-center justify-end gap-1.5">
                   <div className={`h-2 w-2 rounded-full ${seller.status === "ACTIVE" ? "bg-green-500" : "bg-gray-300"}`} />

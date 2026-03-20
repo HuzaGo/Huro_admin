@@ -62,6 +62,8 @@ interface SellerState {
   productsError: string | null;
   isDeleting: boolean;
   deleteError: string | null;
+  isAssigning: boolean;
+  assignError: string | null;
 }
 
 const initialState: SellerState = {
@@ -78,6 +80,8 @@ const initialState: SellerState = {
   productsError: null,
   isDeleting: false,
   deleteError: null,
+  isAssigning: false,
+  assignError: null,
 };
 
 const normalizeSeller = (item: any): Seller => ({
@@ -221,6 +225,44 @@ export const createSeller = createAsyncThunk(
   }
 );
 
+export interface AssignProductPayload {
+  sellerId: string;
+  productId: string;
+  price: number;
+  stockQuantity: number;
+  customName?: string;
+  customDescription?: string;
+}
+
+export const assignProductToSeller = createAsyncThunk(
+  'sellers/assignProduct',
+  async (payload: AssignProductPayload, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+      if (!token) return rejectWithValue('Authentication token is missing. Please log in again.');
+
+      const { sellerId, ...body } = payload;
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/sellers/${sellerId}/products`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        const msg = data?.error?.message || data?.message || 'Failed to assign product';
+        return rejectWithValue(msg);
+      }
+      return data;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred while assigning product');
+    }
+  }
+);
+
 export const deleteSeller = createAsyncThunk(
   'sellers/delete',
   async (sellerId: string, { getState, rejectWithValue }) => {
@@ -230,7 +272,7 @@ export const deleteSeller = createAsyncThunk(
 
       if (!token) return rejectWithValue('Authentication token is missing. Please log in again.');
 
-      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/sellers/${sellerId}`;
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/admin/sellers/${sellerId}`;
       const response = await fetch(url, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
@@ -345,6 +387,18 @@ const sellerSlice = createSlice({
       .addCase(deleteSeller.rejected, (state, action) => {
         state.isDeleting = false;
         state.deleteError = action.payload as string;
+      })
+      // Assign Product
+      .addCase(assignProductToSeller.pending, (state) => {
+        state.isAssigning = true;
+        state.assignError = null;
+      })
+      .addCase(assignProductToSeller.fulfilled, (state) => {
+        state.isAssigning = false;
+      })
+      .addCase(assignProductToSeller.rejected, (state, action) => {
+        state.isAssigning = false;
+        state.assignError = action.payload as string;
       });
   },
 });
