@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -20,17 +20,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  Search, 
-  Download, 
-  Plus, 
-  MapPin, 
-  Mail, 
-  RefreshCcw, 
-  XOctagon, 
-  ChevronLeft, 
-  ChevronRight,
+import {
+  Search,
+  Download,
+  Plus,
+  MapPin,
+  Mail,
+  RefreshCcw,
+  XOctagon,
   User
 } from "lucide-react";
 
@@ -65,7 +62,7 @@ export default function OrdersPage() {
   const isOrderSelected = selectedOrder !== null;
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1400px] mx-auto">
+    <div className="flex flex-col gap-6 max-w-350 mx-auto">
       
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -100,7 +97,7 @@ export default function OrdersPage() {
                 <label className="text-xs font-semibold text-slate-500">Order ID</label>
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input placeholder="e.g. #1203" className="pl-9 bg-slate-50 border-gray-200" />
+                  <Input id="orders-search" placeholder="e.g. #1203" className="pl-9 bg-slate-50 border-gray-200" />
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -165,7 +162,7 @@ export default function OrdersPage() {
                       onClick={() => setSelectedOrder(order.id)}
                       className={`cursor-pointer transition-colors border-b border-slate-50 hover:bg-slate-50 ${selectedOrder === order.id ? 'bg-blue-50/40 hover:bg-blue-50/60' : ''}`}
                     >
-                      <TableCell className="font-bold text-blue-600 py-4 max-w-[120px]">{order.id}</TableCell>
+                      <TableCell className="font-bold text-blue-600 py-4 max-w-30">{order.id}</TableCell>
                       <TableCell className="text-slate-600 font-medium py-4">{order.source}</TableCell>
                       <TableCell className="text-slate-900 font-bold py-4">{order.customer}</TableCell>
                       <TableCell className="text-slate-600 py-4 font-medium">{order.batch}</TableCell>
@@ -193,7 +190,7 @@ export default function OrdersPage() {
 
         {/* Right Side: Order Details Sidebar */}
         {isOrderSelected && (
-          <div className="w-full xl:w-[380px] flex-shrink-0 animate-in slide-in-from-right-8 fade-in duration-300">
+          <div className="w-full xl:w-95 shrink-0 animate-in slide-in-from-right-8 fade-in duration-300">
             <Card className="shadow-sm border-gray-100 sticky top-6">
               <CardHeader className="pb-4 pt-6 px-6 relative">
                 <CardTitle className="text-xl font-bold text-slate-900">Order Details</CardTitle>
@@ -212,7 +209,7 @@ export default function OrdersPage() {
                 
                 {/* Customer Info */}
               <div className="flex items-start gap-4 mb-8">
-                <div className="w-14 h-14 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 flex-shrink-0">
+                <div className="w-14 h-14 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
                   <User className="w-6 h-6" />
                 </div>
                 <div className="flex flex-col pt-0.5">

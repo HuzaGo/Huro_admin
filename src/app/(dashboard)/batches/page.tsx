@@ -2,10 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -14,112 +12,47 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { XOctagon, Plus, X } from "lucide-react";
+import { XOctagon, Plus, User } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { createBatch, clearBatchMessages } from "@/store/slices/batchSlice";
-import { fetchRiders } from "@/store/slices/riderSlice";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-// Mock Delivery Zones Data
-const DELIVERY_ZONES = [
-  { id: "zone-1", name: "Zone A - UR CST Main Gate" },
-  { id: "zone-2", name: "Zone B - Kicukiro" },
-  { id: "zone-3", name: "Zone C - Remera" },
-  { id: "zone-4", name: "Zone D - Nyarugenge" },
-];
-
-// Mock Data
-const batches = [
-  { 
-    id: "B12", 
-    orders: 12, 
-    stops: 4, 
-    rider: "Eric", 
-    location: "UR CST Main Gate", 
-    status: "PICKING UP",
-    statusColor: "bg-blue-100 text-blue-700" 
-  },
-  { 
-    id: "B13", 
-    orders: 9,
-    stops: 3, 
-    rider: "John", 
-    location: "UR CST Main Gate", 
-    status: "PENDING",
-    statusColor: "bg-orange-100 text-orange-700"
-  },
-];
+import { fetchOpenBatches, fetchBatchDetail, clearBatchDetail } from "@/store/slices/batchSlice";
+import { AddBatchSheet } from "@/components/batches/AddBatchSheet";
+import { AssignRiderSheet } from "@/components/batches/AssignRiderSheet";
 
 export default function BatchesPage() {
-  const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
-  const [formData, setFormData] = useState({
-    slotLabel: "",
-    scheduledAt: "",
-    cutoffAt: "",
-    maxOrders: 15,
-    deliveryZoneId: "",
-    riderId: ""
-  });
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
 
   const dispatch = useAppDispatch();
-  const { isCreating, error, successMessage } = useAppSelector((state) => state.batches);
-  const { riders } = useAppSelector((state) => state.riders);
+  const {
+    openBatches, isFetching, fetchError,
+    batchDetail, isFetchingDetail, detailError,
+    successMessage,
+  } = useAppSelector((s) => s.batches);
 
   useEffect(() => {
-    dispatch(fetchRiders({ limit: 100 })); // Fetch riders to populate the dropdown
+    dispatch(fetchOpenBatches(undefined));
   }, [dispatch]);
 
   useEffect(() => {
-    if (successMessage) {
-      setIsCreateModalOpen(false);
-      setFormData({
-        slotLabel: "",
-        scheduledAt: "",
-        cutoffAt: "",
-        maxOrders: 15,
-        deliveryZoneId: "",
-        riderId: ""
-      });
-      // Optional: fetch batches again here if fetchBatches is implemented
-      const timer = setTimeout(() => {
-        dispatch(clearBatchMessages());
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
+    if (successMessage) dispatch(fetchOpenBatches(undefined));
   }, [successMessage, dispatch]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ 
-      ...prev, 
-      [name]: name === 'maxOrders' ? parseInt(value) || 0 : value 
-    }));
-  };
+  useEffect(() => {
+    if (selectedBatchId) {
+      dispatch(fetchBatchDetail(selectedBatchId));
+    } else {
+      dispatch(clearBatchDetail());
+    }
+  }, [selectedBatchId, dispatch]);
 
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ 
-      ...prev, 
-      [name]: value 
-    }));
+  const handleRowClick = (id: string) => {
+    setSelectedBatchId((prev) => (prev === id ? null : id));
   };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    dispatch(createBatch({
-      ...formData,
-      scheduledAt: new Date(formData.scheduledAt).toISOString(),
-      cutoffAt: new Date(formData.cutoffAt).toISOString(),
-    }));
-  };
-
-  const isBatchSelected = selectedBatch !== null;
 
   return (
     <div className="flex flex-col gap-6 max-w-350 mx-auto relative">
-      
+
       {/* Top Navigation & Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-px">
         <div className="flex gap-8">
@@ -131,9 +64,9 @@ export default function BatchesPage() {
           </Button>
         </div>
         <div className="mb-3 md:mb-0">
-          <Button 
+          <Button
             className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-semibold rounded-lg px-6"
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => setIsSheetOpen(true)}
           >
             <Plus className="mr-2 h-4 w-4" />
             Create Batch
@@ -143,7 +76,7 @@ export default function BatchesPage() {
 
       {/* Main Content Layout */}
       <div className="flex flex-col xl:flex-row gap-6 items-start">
-        
+
         {/* Left Side: Table */}
         <div className="flex-1 flex flex-col gap-4 w-full">
           <Card className="shadow-sm border-gray-100 overflow-hidden flex flex-col rounded-xl">
@@ -152,320 +85,230 @@ export default function BatchesPage() {
                 <TableHeader className="bg-white">
                   <TableRow className="hover:bg-transparent border-b border-slate-100 border-t-0">
                     <TableHead className="font-bold text-slate-500 text-[11px] tracking-wider h-14 pl-6">BATCH ID</TableHead>
-                    <TableHead className="font-bold text-slate-500 text-[11px] tracking-wider h-14">VOLUME</TableHead>
-                    <TableHead className="font-bold text-slate-500 text-[11px] tracking-wider h-14">RIDER</TableHead>
-                    <TableHead className="font-bold text-slate-500 text-[11px] tracking-wider h-14">LOCATION</TableHead>
-                    <TableHead className="font-bold text-slate-500 text-[11px] tracking-wider h-14">STATUS</TableHead>
+                    <TableHead className="font-bold text-slate-500 text-[11px] tracking-wider h-14">SLOT</TableHead>
+                    <TableHead className="font-bold text-slate-500 text-[11px] tracking-wider h-14">ZONE</TableHead>
+                    <TableHead className="font-bold text-slate-500 text-[11px] tracking-wider h-14">FILL</TableHead>
+                    <TableHead className="font-bold text-slate-500 text-[11px] tracking-wider h-14">SLOTS LEFT</TableHead>
                     <TableHead className="font-bold text-slate-500 text-[11px] tracking-wider h-14 pr-6">ACTION</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {batches.map((batch) => (
-                    <TableRow 
-                      key={batch.id}
-                      onClick={() => setSelectedBatch(batch.id)}
-                      className={`cursor-pointer transition-colors border-b border-slate-100 ${selectedBatch === batch.id ? 'bg-blue-50/40 hover:bg-blue-50/60' : 'bg-white hover:bg-slate-50'}`}
-                    >
-                      <TableCell className="font-bold text-blue-600 py-5 pl-6 text-base">{batch.id}</TableCell>
-                      <TableCell className="py-5">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-900 text-[14px]">{batch.orders} Orders</span>
-                          <span className="text-slate-500 text-[13px]">{batch.stops} Pickup Stops</span>
+                  {isFetching ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-10">
+                        <div className="flex justify-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
                         </div>
-                      </TableCell>
-                      <TableCell className="text-slate-700 font-medium py-5 text-[14px]">{batch.rider}</TableCell>
-                      <TableCell className="text-slate-500 py-5 text-[14px]">
-                        <div className="max-w-25 leading-tight">
-                          {batch.location}
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-5">
-                        <Badge variant="secondary" className={`${batch.statusColor} border-none font-bold text-[10px] tracking-wider`}>
-                          {batch.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="py-5 pr-6">
-                        <Button variant="link" className="text-blue-600 font-bold text-[13px] p-0 h-auto">
-                          View Detail
-                        </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : fetchError ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-10 text-red-500 text-sm">
+                        {fetchError}
+                      </TableCell>
+                    </TableRow>
+                  ) : openBatches.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-10 text-slate-400 text-sm">
+                        No open batches found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    openBatches.map((batch) => (
+                      <TableRow
+                        key={batch.id}
+                        onClick={() => handleRowClick(batch.id)}
+                        className={`cursor-pointer transition-colors border-b border-slate-100 ${selectedBatchId === batch.id ? 'bg-blue-50/40 hover:bg-blue-50/60' : 'bg-white hover:bg-slate-50'}`}
+                      >
+                        <TableCell className="font-bold text-blue-600 py-5 pl-6 text-base font-mono">
+                          {batch.id.slice(0, 8)}…
+                        </TableCell>
+                        <TableCell className="py-5">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900 text-[14px]">{batch.slotLabel}</span>
+                            <span className="text-slate-500 text-[12px]">
+                              {new Date(batch.scheduledAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-slate-600 font-medium py-5 text-[14px]">
+                          {batch.deliveryZone?.name ?? "—"}
+                        </TableCell>
+                        <TableCell className="py-5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-20 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-blue-500"
+                                style={{ width: `${Math.min(batch.fillPercent, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-[13px] font-semibold text-slate-700">{batch.fillPercent}%</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-5">
+                          <Badge variant="secondary" className="bg-green-100 text-green-700 border-none font-bold text-[11px]">
+                            {batch.slotsRemaining} left
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="py-5 pr-6">
+                          <Button variant="link" className="text-blue-600 font-bold text-[13px] p-0 h-auto">
+                            View Detail
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
           </Card>
         </div>
 
-        {/* Right Side: Batch Details Sidebar */}
-        {isBatchSelected && (
+        {/* Right Side: Batch Detail Sidebar */}
+        {selectedBatchId && (
           <div className="w-full xl:w-105 shrink-0 animate-in slide-in-from-right-8 fade-in duration-300">
             <Card className="shadow-sm border-gray-100 sticky top-6 rounded-xl overflow-hidden">
               <CardHeader className="pb-4 pt-6 px-6 relative border-b border-slate-50">
-                <CardTitle className="text-[20px] font-bold text-slate-900 mb-1">Batch {selectedBatch}</CardTitle>
-                <div className="flex items-center gap-1.5 text-[13px] font-medium text-green-600">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                  Active
-                </div>
+                <CardTitle className="text-[20px] font-bold text-slate-900 mb-1">
+                  {batchDetail?.slotLabel ?? "Batch Detail"}
+                </CardTitle>
+                {batchDetail?.status && (
+                  <div className="flex items-center gap-1.5 text-[13px] font-medium text-green-600">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    {batchDetail.status}
+                  </div>
+                )}
                 <div className="absolute right-4 top-4">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="h-8 w-8 text-slate-400 hover:text-slate-600 rounded-full"
-                    onClick={() => setSelectedBatch(null)}
+                    onClick={() => setSelectedBatchId(null)}
                   >
                     <XOctagon className="w-4 h-4" />
                   </Button>
                 </div>
               </CardHeader>
-              
-              <CardContent className="px-6 py-6 border-b border-slate-50 bg-slate-50/30">
-                {/* Stats row */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-100/80 rounded-xl p-4 flex flex-col justify-center">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">ORDERS</span>
-                    <span className="text-2xl font-bold text-slate-900">12</span>
-                  </div>
-                  <div className="bg-slate-100/80 rounded-xl p-4 flex flex-col justify-center">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">PICKUP TIME</span>
-                    <span className="text-2xl font-bold text-red-500">11:30</span>
-                  </div>
-                </div>
-              </CardContent>
 
-              <CardContent className="px-6 py-6 pb-2">
-                <h4 className="text-[12px] font-bold text-slate-500 tracking-wider flex items-center gap-2 mb-6">
-                  <span className="text-slate-400 font-normal">⮂</span> 4 PICKUP STOPS
-                </h4>
-                
-                {/* Timeline */}
-                <div className="relative pl-3 space-y-7 before:absolute before:inset-y-2 before:left-6.75 before:w-0.5 before:bg-slate-200">
-                  
-                  {/* Stop 1 */}
-                  <div className="relative z-10 flex gap-4 items-start">
-                    <div className="w-7.5 h-7.5 rounded-full bg-white border-2 border-blue-500 text-blue-600 flex items-center justify-center text-[12px] font-bold shrink-0 mt-0.5">
-                      01
+              {isFetchingDetail ? (
+                <CardContent className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+                </CardContent>
+              ) : detailError ? (
+                <CardContent className="py-8 text-center text-sm text-red-500">
+                  {detailError}
+                </CardContent>
+              ) : batchDetail ? (
+                <>
+                  {/* Stats */}
+                  <CardContent className="px-6 py-6 border-b border-slate-50 bg-slate-50/30">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-100/80 rounded-xl p-4 flex flex-col justify-center">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">ORDERS</span>
+                        <span className="text-2xl font-bold text-slate-900">{batchDetail.orders?.length ?? 0}</span>
+                      </div>
+                      <div className="bg-slate-100/80 rounded-xl p-4 flex flex-col justify-center">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">SLOTS LEFT</span>
+                        <span className="text-2xl font-bold text-blue-600">{batchDetail.slotsRemaining ?? "—"}</span>
+                      </div>
                     </div>
-                    <div className="flex flex-col pt-1 pl-1">
-                      <h3 className="font-bold text-slate-900 text-[14px]">Snack Shop</h3>
-                      <p className="text-[13px] text-slate-500">3 Orders waiting</p>
-                    </div>
-                  </div>
+                  </CardContent>
 
-                  {/* Stop 2 */}
-                  <div className="relative z-10 flex gap-4 items-start">
-                    <div className="w-7.5 h-7.5 rounded-full bg-white border-2 border-slate-700 text-slate-700 flex items-center justify-center text-[12px] font-bold shrink-0 mt-0.5">
-                      02
+                  {/* Info */}
+                  <CardContent className="px-6 py-6 border-b border-slate-50 space-y-3 text-[14px]">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Zone</span>
+                      <span className="font-semibold text-slate-700">{batchDetail.deliveryZone?.name ?? "—"}</span>
                     </div>
-                    <div className="flex flex-col pt-1 pl-1">
-                      <h3 className="font-bold text-slate-900 text-[14px]">Printing Shop</h3>
-                      <p className="text-[13px] text-slate-500">5 Orders waiting</p>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Scheduled</span>
+                      <span className="font-semibold text-slate-700">
+                        {new Date(batchDetail.scheduledAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                      </span>
                     </div>
-                  </div>
+                    {batchDetail.cutoffAt && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500 font-medium">Cutoff</span>
+                        <span className="font-semibold text-slate-700">
+                          {new Date(batchDetail.cutoffAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                        </span>
+                      </div>
+                    )}
+                    {batchDetail.maxOrders != null && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500 font-medium">Max Orders</span>
+                        <span className="font-semibold text-slate-700">{batchDetail.maxOrders}</span>
+                      </div>
+                    )}
+                  </CardContent>
 
-                  {/* Stop 3 */}
-                  <div className="relative z-10 flex gap-4 items-start">
-                    <div className="w-7.5 h-7.5 rounded-full bg-white border-2 border-slate-700 text-slate-700 flex items-center justify-center text-[12px] font-bold shrink-0 mt-0.5">
-                      03
-                    </div>
-                    <div className="flex flex-col pt-1 pl-1">
-                      <h3 className="font-bold text-slate-900 text-[14px]">Electronics Shop</h3>
-                      <p className="text-[13px] text-slate-500">2 Orders waiting</p>
-                    </div>
-                  </div>
+                  {/* Rider */}
+                  {batchDetail.rider && (
+                    <CardContent className="px-6 py-5 border-b border-slate-50">
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Assigned Rider</p>
+                      <div className="bg-blue-50/50 rounded-xl border border-blue-100 p-4 flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                          <User className="h-5 w-5 text-blue-500" />
+                        </div>
+                        <span className="text-[14px] font-bold text-slate-900">
+                          {batchDetail.rider?.user?.fullName ?? "—"}
+                        </span>
+                      </div>
+                    </CardContent>
+                  )}
 
-                  {/* Stop 4 */}
-                  <div className="relative z-10 flex gap-4 items-start">
-                    <div className="w-7.5 h-7.5 rounded-full bg-white border-2 border-slate-700 text-slate-700 flex items-center justify-center text-[12px] font-bold shrink-0 mt-0.5">
-                      04
-                    </div>
-                    <div className="flex flex-col pt-1 pl-1">
-                      <h3 className="font-bold text-slate-900 text-[14px]">Printing Hub</h3>
-                      <p className="text-[13px] text-slate-500">2 Orders waiting</p>
-                    </div>
-                  </div>
+                  {/* Orders */}
+                  {batchDetail.orders && batchDetail.orders.length > 0 && (
+                    <CardContent className="px-6 py-5 border-b border-slate-50">
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                        Orders ({batchDetail.orders.length})
+                      </p>
+                      <div className="space-y-2">
+                        {batchDetail.orders.map((order) => (
+                          <div key={order.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                            <div className="flex flex-col">
+                              <span className="text-[13px] font-bold text-slate-800">
+                                {order.customer?.fullName ?? order.id.slice(0, 8) + "…"}
+                              </span>
+                              {order.seller?.name && (
+                                <span className="text-[12px] text-slate-500">{order.seller.name}</span>
+                              )}
+                            </div>
+                            {order.status && (
+                              <Badge variant="secondary" className="text-[10px] font-bold border-none bg-slate-100 text-slate-600">
+                                {order.status}
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  )}
 
-                </div>
-              </CardContent>
-
-              <CardContent className="px-6 py-6 pb-6">
-                {/* Assigned Rider */}
-                <div className="bg-blue-50/50 rounded-xl border border-blue-100 p-4 flex items-center gap-3">
-                  <Avatar className="h-10 w-10 border border-slate-200 shadow-sm">
-                    <AvatarImage src="https://github.com/shadcn.png" alt="Eric" />
-                    <AvatarFallback>EP</AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col">
-                    <span className="text-[12px] font-semibold text-slate-500">Assigned Rider</span>
-                    <span className="text-[14px] font-bold text-slate-900">Eric S. Peterson</span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex flex-col gap-3 mt-6">
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+                  {/* Actions */}
+                  <CardContent className="px-6 py-5">
+                    <Button
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                      onClick={() => setIsAssignOpen(true)}
+                    >
                       Assign Rider
                     </Button>
-                    <Button className="w-full bg-[#00A36C] hover:bg-[#008A5B] text-white font-semibold">
-                      Dispatch Batch
-                    </Button>
-                  </div>
-                  <Button variant="outline" className="w-full text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 font-semibold h-11">
-                    Cancel Batch
-                  </Button>
-                </div>
-              </CardContent>
+                  </CardContent>
+                </>
+              ) : null}
             </Card>
           </div>
         )}
 
       </div>
 
-      {/* Create Batch Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <Card className="w-full max-w-md bg-white shadow-xl animate-in zoom-in-95 duration-200">
-            <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-              <CardTitle className="text-xl">Create New Batch</CardTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setIsCreateModalOpen(false);
-                  dispatch(clearBatchMessages());
-                }}
-                className="h-8 w-8"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </CardHeader>
-            <form onSubmit={handleSubmit}>
-              <CardContent className="grid gap-4 pt-6">
-                {error && (
-                  <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-200">
-                    {error}
-                  </div>
-                )}
-                {successMessage && (
-                  <div className="bg-green-50 text-green-600 p-3 rounded-md text-sm border border-green-200">
-                    {successMessage}
-                  </div>
-                )}
-
-                <div className="grid gap-2">
-                  <Label htmlFor="slotLabel">Slot Label (e.g. 12:00 - 12:30)</Label>
-                  <Input
-                    id="slotLabel"
-                    name="slotLabel"
-                    value={formData.slotLabel}
-                    onChange={handleInputChange}
-                    placeholder="12:00 - 12:30"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="scheduledAt">Scheduled At</Label>
-                    <Input
-                      id="scheduledAt"
-                      name="scheduledAt"
-                      type="datetime-local"
-                      value={formData.scheduledAt}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="cutoffAt">Cutoff At</Label>
-                    <Input
-                      id="cutoffAt"
-                      name="cutoffAt"
-                      type="datetime-local"
-                      value={formData.cutoffAt}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="maxOrders">Max Orders</Label>
-                  <Input
-                    id="maxOrders"
-                    name="maxOrders"
-                    type="number"
-                    min="1"
-                    value={formData.maxOrders}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="deliveryZoneId">Delivery Zone</Label>
-                  <Select
-                    value={formData.deliveryZoneId}
-                    onValueChange={(value) => handleSelectChange('deliveryZoneId', value as string)}
-                    required
-                  >
-                    <SelectTrigger id="deliveryZoneId">
-                      <SelectValue placeholder="Select Delivery Zone" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DELIVERY_ZONES.map((zone) => (
-                        <SelectItem key={zone.id} value={zone.id}>
-                          {zone.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="riderId">Assigned Rider</Label>
-                  <Select
-                    value={formData.riderId}
-                    onValueChange={(value) => handleSelectChange('riderId', value as string)}
-                    required
-                  >
-                    <SelectTrigger id="riderId">
-                      <SelectValue placeholder="Select Rider" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {riders.map((rider) => (
-                        <SelectItem key={rider.id} value={rider.id}>
-                          {rider.fullName}
-                        </SelectItem>
-                      ))}
-                      {riders.length === 0 && (
-                        <SelectItem value="no-rider" disabled>No riders available</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-              <CardFooter className="border-t pt-4 flex justify-end gap-3">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsCreateModalOpen(false)}
-                  disabled={isCreating}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                  disabled={isCreating}
-                >
-                  {isCreating ? 'Creating...' : 'Create Batch'}
-                </Button>
-              </CardFooter>
-            </form>
-          </Card>
-        </div>
+      <AddBatchSheet open={isSheetOpen} onOpenChange={setIsSheetOpen} />
+      {selectedBatchId && (
+        <AssignRiderSheet
+          batchId={selectedBatchId}
+          open={isAssignOpen}
+          onOpenChange={setIsAssignOpen}
+        />
       )}
     </div>
   );

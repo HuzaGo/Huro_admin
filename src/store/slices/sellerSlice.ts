@@ -42,6 +42,19 @@ export interface CreateSellerPayload {
   pickupLongitude: number;
 }
 
+export interface UpdateSellerPayload {
+  sellerId: string;
+  sellerName?: string;
+  sellerPhone?: string;
+  logoFile?: File;
+  isActive?: boolean;
+  pickupLocationName?: string;
+  pickupLocationNote?: string;
+  pickupLocationUrl?: string;
+  pickupLatitude?: number;
+  pickupLongitude?: number;
+}
+
 export interface FetchSellersParams {
   page?: number;
   limit?: number;
@@ -64,6 +77,8 @@ interface SellerState {
   deleteError: string | null;
   isAssigning: boolean;
   assignError: string | null;
+  isUpdating: boolean;
+  updateError: string | null;
 }
 
 const initialState: SellerState = {
@@ -82,6 +97,8 @@ const initialState: SellerState = {
   deleteError: null,
   isAssigning: false,
   assignError: null,
+  isUpdating: false,
+  updateError: null,
 };
 
 const normalizeSeller = (item: any): Seller => ({
@@ -263,6 +280,44 @@ export const assignProductToSeller = createAsyncThunk(
   }
 );
 
+export const updateSeller = createAsyncThunk(
+  'sellers/update',
+  async (payload: UpdateSellerPayload, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+      if (!token) return rejectWithValue('Authentication token is missing.');
+
+      const formData = new FormData();
+      if (payload.sellerName) formData.append('sellerName', payload.sellerName);
+      if (payload.sellerPhone) formData.append('sellerPhone', payload.sellerPhone);
+      if (payload.logoFile) formData.append('logo', payload.logoFile);
+      if (payload.isActive !== undefined) formData.append('isActive', String(payload.isActive));
+      if (payload.pickupLocationName) formData.append('pickupLocationName', payload.pickupLocationName);
+      if (payload.pickupLocationNote) formData.append('pickupLocationNote', payload.pickupLocationNote);
+      if (payload.pickupLocationUrl) formData.append('pickupLocationUrl', payload.pickupLocationUrl);
+      if (payload.pickupLatitude !== undefined) formData.append('pickupLatitude', String(payload.pickupLatitude));
+      if (payload.pickupLongitude !== undefined) formData.append('pickupLongitude', String(payload.pickupLongitude));
+
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/sellers/${payload.sellerId}`;
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        const msg = data?.error?.message || data?.message || 'Failed to update seller';
+        return rejectWithValue(msg);
+      }
+      return data;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred while updating seller');
+    }
+  }
+);
+
 export const deleteSeller = createAsyncThunk(
   'sellers/delete',
   async (sellerId: string, { getState, rejectWithValue }) => {
@@ -405,6 +460,21 @@ const sellerSlice = createSlice({
       .addCase(assignProductToSeller.rejected, (state, action) => {
         state.isAssigning = false;
         state.assignError = action.payload as string;
+      })
+      // Update Seller
+      .addCase(updateSeller.pending, (state) => {
+        state.isUpdating = true;
+        state.updateError = null;
+      })
+      .addCase(updateSeller.fulfilled, (state, action) => {
+        state.isUpdating = false;
+        const updated = normalizeSeller(action.payload?.data ?? action.payload);
+        state.sellers = state.sellers.map((s) => s.id === updated.id ? updated : s);
+        state.successMessage = action.payload?.message || 'Seller updated successfully!';
+      })
+      .addCase(updateSeller.rejected, (state, action) => {
+        state.isUpdating = false;
+        state.updateError = action.payload as string;
       });
   },
 });

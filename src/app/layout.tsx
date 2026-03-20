@@ -21,6 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
+        suppressHydrationWarning
         className={`${inter.variable} font-sans antialiased text-sm min-h-screen bg-slate-50/50 text-slate-800`}
       >
         <StoreProvider>

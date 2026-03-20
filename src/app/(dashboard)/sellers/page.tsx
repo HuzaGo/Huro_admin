@@ -45,7 +45,7 @@ export default function SellersPage() {
             <div className="flex items-center gap-3">
               <div className="relative w-72">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                <Input placeholder="Search sellers, products, or locations..." className="pl-9 bg-white" />
+                <Input id="sellers-search" placeholder="Search sellers, products, or locations..." className="pl-9 bg-white" />
               </div>
               <Button onClick={() => setIsSheetOpen(true)} className="bg-blue-500 hover:bg-blue-600 text-white">
                 <Plus className="h-4 w-4 mr-2" /> Add Seller
