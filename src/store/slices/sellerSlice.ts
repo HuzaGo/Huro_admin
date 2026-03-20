@@ -365,10 +365,16 @@ const sellerSlice = createSlice({
       })
       .addCase(fetchSellerProducts.fulfilled, (state, action) => {
         state.isFetchingProducts = false;
+        console.log('[fetchSellerProducts] raw payload:', action.payload);
+        const payload = action.payload;
         const items: SellerProduct[] =
-          action.payload?.data?.items ??
-          action.payload?.items ??
+          payload?.data?.items ??
+          payload?.data?.data?.items ??
+          payload?.data?.products ??
+          (Array.isArray(payload?.data) ? payload.data : null) ??
+          payload?.items ??
           [];
+        console.log('[fetchSellerProducts] extracted items:', items);
         state.sellerProducts = items;
       })
       .addCase(fetchSellerProducts.rejected, (state, action) => {

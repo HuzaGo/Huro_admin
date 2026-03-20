@@ -53,12 +53,7 @@ export default function ProductsPage() {
   const [price, setPrice] = useState<number>(0)
   const [stockQuantity, setStockQuantity] = useState<number>(0)
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(0)
-  const [isVisible, setIsVisible] = useState<boolean>(true)
-  const [pickupLocationName, setPickupLocationName] = useState("")
-  const [pickupLocationNote, setPickupLocationNote] = useState("")
-  const [pickupLocationUrl, setPickupLocationUrl] = useState("")
-  const [pickupLatitude, setPickupLatitude] = useState<number>(0)
-  const [pickupLongitude, setPickupLongitude] = useState<number>(0)
+  const [images, setImages] = useState<File[]>([])
   
   const dispatch = useAppDispatch()
   const { categories } = useAppSelector((state) => state.categories)
@@ -98,12 +93,7 @@ export default function ProductsPage() {
         setPrice(0)
         setStockQuantity(0)
         setLowStockThreshold(0)
-        setIsVisible(true)
-        setPickupLocationName("")
-        setPickupLocationNote("")
-        setPickupLocationUrl("")
-        setPickupLatitude(0)
-        setPickupLongitude(0)
+        setImages([])
         dispatch(clearProductMessages())
       }, 300)
     }
@@ -118,33 +108,22 @@ export default function ProductsPage() {
     setPrice(product.price ?? 0)
     setStockQuantity(product.stockQuantity ?? 0)
     setLowStockThreshold(product.lowStockThreshold ?? 0)
-    setIsVisible(product.isVisible ?? true)
-    setPickupLocationName(product.pickupLocationName || "")
-    setPickupLocationNote(product.pickupLocationNote || "")
-    setPickupLocationUrl(product.pickupLocationUrl || "")
-    setPickupLatitude(product.pickupLatitude ?? 0)
-    setPickupLongitude(product.pickupLongitude ?? 0)
+    setImages([])
     setIsSheetOpen(true)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Ensure numeric fields are explicitly sent as numbers
     const payload = {
       name,
-      description,
-      categoryId,
+      description: description || undefined,
+      categoryId: categoryId || undefined,
       sellerId,
       price: Number(price) || 0,
       stockQuantity: Number(stockQuantity) || 0,
-      lowStockThreshold: Number(lowStockThreshold) || 0,
-      isVisible,
-      pickupLocationName,
-      pickupLocationNote,
-      pickupLocationUrl,
-      pickupLatitude: Number(pickupLatitude) || 0,
-      pickupLongitude: Number(pickupLongitude) || 0
+      lowStockThreshold: Number(lowStockThreshold) || undefined,
+      images: images.length ? images : undefined,
     }
 
     let resultAction;
@@ -194,7 +173,7 @@ export default function ProductsPage() {
               </SheetDescription>
             </SheetHeader>
             <div className="mt-6">
-              <form onSubmit={handleSubmit} className="space-y-6 flex flex-col items-stretch w-full justify-start items-start">
+              <form onSubmit={handleSubmit} className="space-y-6 flex flex-col w-full">
                 {error && (
                   <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md w-full">
                     {typeof error === 'string' ? error : (error as any).message || JSON.stringify(error)}
@@ -265,33 +244,18 @@ export default function ProductsPage() {
                     </Select>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="price">Price <span className="text-red-500">*</span></Label>
-                      <Input
-                        id="price"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={price}
-                        onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
-                        required
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div className="space-y-2 flex flex-col justify-center">
-                      <div className="flex items-center gap-2 pt-6">
-                        <input 
-                          type="checkbox" 
-                          id="isVisible" 
-                          className="w-4 h-4 cursor-pointer" 
-                          checked={isVisible} 
-                          onChange={(e) => setIsVisible(e.target.checked)} 
-                          disabled={isLoading} 
-                        />
-                        <Label htmlFor="isVisible" className="cursor-pointer">Visible to Customers</Label>
-                      </div>
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="price">Price <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={price}
+                      onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
+                      required
+                      disabled={isLoading}
+                    />
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
@@ -322,72 +286,24 @@ export default function ProductsPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4 w-full mt-4">
-                  <h3 className="font-semibold text-lg border-b pb-2">Pickup Location Details</h3>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="pickupLocationName">Location Name <span className="text-red-500">*</span></Label>
-                    <Input
-                      id="pickupLocationName"
-                      placeholder="e.g. Main Canteen"
-                      value={pickupLocationName}
-                      onChange={(e) => setPickupLocationName(e.target.value)}
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="pickupLocationNote">Location Note <span className="text-red-500">*</span></Label>
-                    <Input
-                      id="pickupLocationNote"
-                      placeholder="e.g. Ask for counter 3"
-                      value={pickupLocationNote}
-                      onChange={(e) => setPickupLocationNote(e.target.value)}
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="pickupLocationUrl">Location URL <span className="text-red-500">*</span></Label>
-                    <Input
-                      id="pickupLocationUrl"
-                      type="url"
-                      placeholder="e.g. https://maps.google.com/..."
-                      value={pickupLocationUrl}
-                      onChange={(e) => setPickupLocationUrl(e.target.value)}
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="pickupLatitude">Latitude <span className="text-red-500">*</span></Label>
-                      <Input
-                        id="pickupLatitude"
-                        type="number"
-                        step="any"
-                        value={pickupLatitude}
-                        onChange={(e) => setPickupLatitude(parseFloat(e.target.value) || 0)}
-                        required
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="pickupLongitude">Longitude <span className="text-red-500">*</span></Label>
-                      <Input
-                        id="pickupLongitude"
-                        type="number"
-                        step="any"
-                        value={pickupLongitude}
-                        onChange={(e) => setPickupLongitude(parseFloat(e.target.value) || 0)}
-                        required
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
+                <div className="space-y-2 w-full">
+                  <Label htmlFor="images">
+                    Product Images <span className="text-muted-foreground text-xs">(up to 5)</span>
+                  </Label>
+                  <Input
+                    id="images"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    disabled={isLoading}
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []).slice(0, 5)
+                      setImages(files)
+                    }}
+                  />
+                  {images.length > 0 && (
+                    <p className="text-xs text-muted-foreground">{images.length} file(s) selected</p>
+                  )}
                 </div>
 
                 <Button type="submit" className="w-full mt-6" disabled={isLoading || !name.trim()}>

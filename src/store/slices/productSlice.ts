@@ -3,36 +3,27 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 export interface Product {
   id: string;
   name: string;
-  description: string;
-  categoryId: string;
+  description?: string;
+  categoryId?: string;
   sellerId?: string;
   price: number;
   stockQuantity: number;
-  lowStockThreshold: number;
+  lowStockThreshold?: number;
   isVisible?: boolean;
-  pickupLocationName: string;
-  pickupLocationNote: string;
-  pickupLocationUrl: string;
-  pickupLatitude: number;
-  pickupLongitude: number;
+  imageUrls?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
 
 export interface CreateProductPayload {
   name: string;
-  description: string;
-  categoryId: string;
+  description?: string;
+  categoryId?: string;
   sellerId: string;
   price: number;
   stockQuantity: number;
-  lowStockThreshold: number;
-  isVisible?: boolean;
-  pickupLocationName: string;
-  pickupLocationNote: string;
-  pickupLocationUrl: string;
-  pickupLatitude: number;
-  pickupLongitude: number;
+  lowStockThreshold?: number;
+  images?: File[];
 }
 
 export interface UpdateProductPayload {
@@ -45,11 +36,7 @@ export interface UpdateProductPayload {
   stockQuantity?: number;
   lowStockThreshold?: number;
   isVisible?: boolean;
-  pickupLocationName?: string;
-  pickupLocationNote?: string;
-  pickupLocationUrl?: string;
-  pickupLatitude?: number;
-  pickupLongitude?: number;
+  images?: File[];
 }
 
 export interface FetchProductsParams {
@@ -149,13 +136,22 @@ export const createProduct = createAsyncThunk(
         return rejectWithValue('Authentication token is missing. Please log in again.');
       }
 
+      const formData = new FormData();
+      formData.append('name', payload.name);
+      if (payload.description) formData.append('description', payload.description);
+      if (payload.categoryId) formData.append('categoryId', payload.categoryId);
+      formData.append('sellerId', payload.sellerId);
+      formData.append('price', String(payload.price));
+      formData.append('stockQuantity', String(payload.stockQuantity));
+      if (payload.lowStockThreshold !== undefined) formData.append('lowStockThreshold', String(payload.lowStockThreshold));
+      if (payload.images?.length) {
+        payload.images.forEach((file) => formData.append('images', file));
+      }
+
       const response = await fetch('/api/v1/products', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
       });
 
       const data = await response.json();
@@ -183,15 +179,24 @@ export const updateProduct = createAsyncThunk(
         return rejectWithValue('Authentication token is missing. Please log in again.');
       }
 
-      const { productId, ...updateData } = payload;
+      const { productId, images, ...rest } = payload;
+      const formData = new FormData();
+      if (rest.name) formData.append('name', rest.name);
+      if (rest.description) formData.append('description', rest.description);
+      if (rest.categoryId) formData.append('categoryId', rest.categoryId);
+      if (rest.sellerId) formData.append('sellerId', rest.sellerId);
+      if (rest.price !== undefined) formData.append('price', String(rest.price));
+      if (rest.stockQuantity !== undefined) formData.append('stockQuantity', String(rest.stockQuantity));
+      if (rest.lowStockThreshold !== undefined) formData.append('lowStockThreshold', String(rest.lowStockThreshold));
+      if (rest.isVisible !== undefined) formData.append('isVisible', String(rest.isVisible));
+      if (images?.length) {
+        images.forEach((file) => formData.append('images', file));
+      }
 
       const response = await fetch(`/api/v1/products/${productId}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(updateData),
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
       });
 
       const data = await response.json();

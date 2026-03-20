@@ -12,6 +12,7 @@ import {
   Tags,
   Users,
   FolderTree,
+  MapPin,
   LogOut
 } from "lucide-react";
 import {
@@ -71,6 +72,12 @@ const items = [
     title: "Sellers",
     url: "/sellers",
     icon: Store,
+    isActive: false,
+  },
+  {
+    title: "Delivery Zones",
+    url: "/delivery-zones",
+    icon: MapPin,
     isActive: false,
   },
   {
