@@ -1,5 +1,18 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
+export interface SellerProduct {
+  id: string;
+  price: number;
+  stockQuantity: number;
+  isAvailable: boolean;
+  customName: string | null;
+  product: {
+    id: string;
+    name: string;
+    imageUrl: string | null;
+  };
+}
+
 export interface Seller {
   id: string;
   name: string;
@@ -19,12 +32,12 @@ export interface Seller {
 
 export interface CreateSellerPayload {
   sellerName: string;
-  description: string;
-  logoUrl: string;
+  description?: string;
+  logoFile: File;
   phone: string;
   pickupLocationName: string;
-  pickupLocationNote: string;
-  pickupLocationUrl: string;
+  pickupLocationNote?: string;
+  pickupLocationUrl?: string;
   pickupLatitude: number;
   pickupLongitude: number;
 }
@@ -44,6 +57,11 @@ interface SellerState {
   isLoading: boolean;
   error: string | null;
   successMessage: string | null;
+  sellerProducts: SellerProduct[];
+  isFetchingProducts: boolean;
+  productsError: string | null;
+  isDeleting: boolean;
+  deleteError: string | null;
 }
 
 const initialState: SellerState = {
@@ -55,6 +73,11 @@ const initialState: SellerState = {
   isLoading: false,
   error: null,
   successMessage: null,
+  sellerProducts: [],
+  isFetchingProducts: false,
+  productsError: null,
+  isDeleting: false,
+  deleteError: null,
 };
 
 const normalizeSeller = (item: any): Seller => ({
@@ -115,6 +138,45 @@ export const fetchSellers = createAsyncThunk(
   }
 );
 
+export const fetchSellerProducts = createAsyncThunk(
+  'sellers/fetchProducts',
+  async (
+    { sellerId, page = 1, limit = 20 }: { sellerId: string; page?: number; limit?: number },
+    { getState, rejectWithValue }
+  ) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+      if (!token) {
+        return rejectWithValue('Authentication token is missing. Please log in again.');
+      }
+
+      const qs = new URLSearchParams({ page: String(page), limit: String(limit) }).toString();
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/sellers/${sellerId}/products?${qs}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorPayload = data.error || data.message || 'Failed to fetch seller products';
+        return rejectWithValue(typeof errorPayload === 'string' ? errorPayload : JSON.stringify(errorPayload));
+      }
+
+      return data;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred while fetching seller products');
+    }
+  }
+);
+
 export const createSeller = createAsyncThunk(
   'sellers/create',
   async (payload: CreateSellerPayload, { getState, rejectWithValue }) => {
@@ -128,13 +190,21 @@ export const createSeller = createAsyncThunk(
 
       const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/sellers`;
 
+      const formData = new FormData();
+      formData.append('sellerName', payload.sellerName);
+      formData.append('phone', payload.phone);
+      formData.append('pickupLocationName', payload.pickupLocationName);
+      formData.append('pickupLatitude', payload.pickupLatitude.toString());
+      formData.append('pickupLongitude', payload.pickupLongitude.toString());
+      formData.append('logo', payload.logoFile);
+      if (payload.description) formData.append('description', payload.description);
+      if (payload.pickupLocationNote) formData.append('pickupLocationNote', payload.pickupLocationNote);
+      if (payload.pickupLocationUrl) formData.append('pickupLocationUrl', payload.pickupLocationUrl);
+
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
       });
 
       const data = await response.json();
@@ -147,6 +217,35 @@ export const createSeller = createAsyncThunk(
       return data;
     } catch (error: any) {
       return rejectWithValue(error.message || 'An error occurred while creating seller');
+    }
+  }
+);
+
+export const deleteSeller = createAsyncThunk(
+  'sellers/delete',
+  async (sellerId: string, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+      if (!token) return rejectWithValue('Authentication token is missing. Please log in again.');
+
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/sellers/${sellerId}`;
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const msg = data?.error?.message || data?.message || 'Failed to delete seller';
+        return rejectWithValue(msg);
+      }
+
+      return sellerId;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred while deleting seller');
     }
   }
 );
@@ -215,6 +314,37 @@ const sellerSlice = createSlice({
       .addCase(createSeller.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      // Fetch Seller Products
+      .addCase(fetchSellerProducts.pending, (state) => {
+        state.isFetchingProducts = true;
+        state.productsError = null;
+        state.sellerProducts = [];
+      })
+      .addCase(fetchSellerProducts.fulfilled, (state, action) => {
+        state.isFetchingProducts = false;
+        const items: SellerProduct[] =
+          action.payload?.data?.items ??
+          action.payload?.items ??
+          [];
+        state.sellerProducts = items;
+      })
+      .addCase(fetchSellerProducts.rejected, (state, action) => {
+        state.isFetchingProducts = false;
+        state.productsError = action.payload as string;
+      })
+      // Delete Seller
+      .addCase(deleteSeller.pending, (state) => {
+        state.isDeleting = true;
+        state.deleteError = null;
+      })
+      .addCase(deleteSeller.fulfilled, (state, action) => {
+        state.isDeleting = false;
+        state.sellers = state.sellers.filter((s) => s.id !== action.payload);
+      })
+      .addCase(deleteSeller.rejected, (state, action) => {
+        state.isDeleting = false;
+        state.deleteError = action.payload as string;
       });
   },
 });
