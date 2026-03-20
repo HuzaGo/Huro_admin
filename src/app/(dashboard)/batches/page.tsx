@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import { XOctagon, Plus, User } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchOpenBatches, fetchBatchDetail, clearBatchDetail } from "@/store/slices/batchSlice";
+import { fetchOpenBatches, fetchBatchDetail, clearBatchDetail, fetchBatchOrders, clearBatchOrders } from "@/store/slices/batchSlice";
 import { AddBatchSheet } from "@/components/batches/AddBatchSheet";
 import { AssignRiderSheet } from "@/components/batches/AssignRiderSheet";
 
@@ -28,6 +28,7 @@ export default function BatchesPage() {
     openBatches, isFetching, fetchError,
     batchDetail, isFetchingDetail, detailError,
     successMessage,
+    batchOrders, isFetchingOrders, ordersError,
   } = useAppSelector((s) => s.batches);
 
   useEffect(() => {
@@ -41,8 +42,10 @@ export default function BatchesPage() {
   useEffect(() => {
     if (selectedBatchId) {
       dispatch(fetchBatchDetail(selectedBatchId));
+      dispatch(fetchBatchOrders({ batchId: selectedBatchId }));
     } else {
       dispatch(clearBatchDetail());
+      dispatch(clearBatchOrders());
     }
   }, [selectedBatchId, dispatch]);
 
@@ -258,32 +261,64 @@ export default function BatchesPage() {
                   )}
 
                   {/* Orders */}
-                  {batchDetail.orders && batchDetail.orders.length > 0 && (
-                    <CardContent className="px-6 py-5 border-b border-slate-50">
-                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                        Orders ({batchDetail.orders.length})
-                      </p>
-                      <div className="space-y-2">
-                        {batchDetail.orders.map((order) => (
-                          <div key={order.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                            <div className="flex flex-col">
-                              <span className="text-[13px] font-bold text-slate-800">
-                                {order.customer?.fullName ?? order.id.slice(0, 8) + "…"}
-                              </span>
-                              {order.seller?.name && (
-                                <span className="text-[12px] text-slate-500">{order.seller.name}</span>
+                  <CardContent className="px-6 py-5 border-b border-slate-50">
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                      Orders {batchOrders.length > 0 && `(${batchOrders.length})`}
+                    </p>
+                    {isFetchingOrders ? (
+                      <div className="flex justify-center py-4">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" />
+                      </div>
+                    ) : ordersError ? (
+                      <p className="text-sm text-red-500 text-center">{ordersError}</p>
+                    ) : batchOrders.length === 0 ? (
+                      <p className="text-sm text-slate-400 text-center py-2">No orders in this batch.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {batchOrders.map((order) => (
+                          <div key={order.id} className="rounded-lg border border-slate-100 bg-slate-50/50 p-3 space-y-2">
+                            {/* Header row */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-[12px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                                  {order.pickupSignature}
+                                </span>
+                                <Badge variant="secondary" className="text-[10px] font-bold border-none bg-slate-100 text-slate-600">
+                                  {order.status}
+                                </Badge>
+                              </div>
+                            </div>
+                            {/* Customer */}
+                            <div className="text-[13px]">
+                              <span className="font-bold text-slate-800">{order.snapshotName}</span>
+                              {order.snapshotPhone && (
+                                <span className="text-slate-500 ml-1">· {order.snapshotPhone}</span>
                               )}
                             </div>
-                            {order.status && (
-                              <Badge variant="secondary" className="text-[10px] font-bold border-none bg-slate-100 text-slate-600">
-                                {order.status}
-                              </Badge>
+                            {/* Delivery info */}
+                            {(order.deliveryName || order.customAddress) && (
+                              <p className="text-[12px] text-slate-500 truncate">
+                                {order.deliveryName ?? order.customAddress}
+                              </p>
+                            )}
+                            {/* Items */}
+                            {order.orderItems?.length > 0 && (
+                              <div className="space-y-1 pt-1 border-t border-slate-100">
+                                {order.orderItems.map((item, i) => (
+                                  <div key={i} className="flex justify-between text-[12px]">
+                                    <span className="text-slate-600">
+                                      <span className="font-semibold text-slate-800">{item.quantity}×</span> {item.productName}
+                                    </span>
+                                    <span className="font-semibold text-slate-700">{item.lineTotal.toLocaleString()} RWF</span>
+                                  </div>
+                                ))}
+                              </div>
                             )}
                           </div>
                         ))}
                       </div>
-                    </CardContent>
-                  )}
+                    )}
+                  </CardContent>
 
                   {/* Actions */}
                   <CardContent className="px-6 py-5">

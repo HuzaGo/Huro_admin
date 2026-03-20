@@ -38,6 +38,32 @@ export interface BatchDetail {
   [key: string]: any;
 }
 
+export interface BatchOrderItem {
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+export interface BatchOrderDetail {
+  id: string;
+  status: string;
+  pickupSignature: string;
+  snapshotName: string;
+  snapshotPhone: string;
+  customAddress?: string;
+  deliveryName?: string;
+  deliveryNote?: string;
+  paidAt: string;
+  orderItems: BatchOrderItem[];
+}
+
+export interface FetchBatchOrdersPayload {
+  batchId: string;
+  gateId?: string;
+  external?: boolean;
+}
+
 export interface AssignRiderPayload {
   batchId: string;
   riderId: string;
@@ -68,6 +94,9 @@ interface BatchState {
   isCompleting: boolean;
   completeError: string | null;
   completeSuccess: string | null;
+  batchOrders: BatchOrderDetail[];
+  isFetchingOrders: boolean;
+  ordersError: string | null;
   isCreating: boolean;
   error: string | null;
   successMessage: string | null;
@@ -89,10 +118,43 @@ const initialState: BatchState = {
   isCompleting: false,
   completeError: null,
   completeSuccess: null,
+  batchOrders: [],
+  isFetchingOrders: false,
+  ordersError: null,
   isCreating: false,
   error: null,
   successMessage: null,
 };
+
+export const fetchBatchOrders = createAsyncThunk(
+  'batches/fetchOrders',
+  async (payload: FetchBatchOrdersPayload, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+      if (!token) return rejectWithValue('Authentication token is missing.');
+
+      const url = new URL(`/api/v1/batches/${payload.batchId}/orders`, window.location.origin);
+      if (payload.gateId) url.searchParams.set('gateId', payload.gateId);
+      if (payload.external !== undefined) url.searchParams.set('external', String(payload.external));
+
+      const response = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return rejectWithValue(data.message || 'Failed to fetch batch orders');
+      }
+
+      return (data.data?.orders ?? data.data ?? []) as BatchOrderDetail[];
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred');
+    }
+  }
+);
 
 export const fetchOpenBatches = createAsyncThunk(
   'batches/fetchOpen',
@@ -272,6 +334,10 @@ const batchSlice = createSlice({
   name: 'batches',
   initialState,
   reducers: {
+    clearBatchOrders: (state) => {
+      state.batchOrders = [];
+      state.ordersError = null;
+    },
     clearBatchMessages: (state) => {
       state.error = null;
       state.successMessage = null;
@@ -295,6 +361,19 @@ const batchSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(fetchBatchOrders.pending, (state) => {
+        state.isFetchingOrders = true;
+        state.ordersError = null;
+        state.batchOrders = [];
+      })
+      .addCase(fetchBatchOrders.fulfilled, (state, action) => {
+        state.isFetchingOrders = false;
+        state.batchOrders = Array.isArray(action.payload) ? action.payload : [];
+      })
+      .addCase(fetchBatchOrders.rejected, (state, action) => {
+        state.isFetchingOrders = false;
+        state.ordersError = action.payload as string;
+      })
       .addCase(fetchOpenBatches.pending, (state) => {
         state.isFetching = true;
         state.fetchError = null;
@@ -375,5 +454,5 @@ const batchSlice = createSlice({
   },
 });
 
-export const { clearBatchMessages, clearBatchDetail, clearAssignMessages, clearDispatchMessages, clearCompleteMessages } = batchSlice.actions;
+export const { clearBatchOrders, clearBatchMessages, clearBatchDetail, clearAssignMessages, clearDispatchMessages, clearCompleteMessages } = batchSlice.actions;
 export default batchSlice.reducer;
