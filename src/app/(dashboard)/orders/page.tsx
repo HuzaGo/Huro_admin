@@ -137,16 +137,17 @@ export default function OrdersPage() {
                 <TableHeader className="bg-slate-50/50">
                   <TableRow className="hover:bg-transparent border-b border-slate-100">
                     <TableHead className="font-bold text-slate-500 text-xs tracking-wider h-12 pl-4">ORDER ID</TableHead>
-                    <TableHead className="font-bold text-slate-500 text-xs tracking-wider h-12">CUSTOMER</TableHead>
-                    <TableHead className="font-bold text-slate-500 text-xs tracking-wider h-12">SELLER</TableHead>
+                    <TableHead className="font-bold text-slate-500 text-xs tracking-wider h-12">ZONE</TableHead>
                     <TableHead className="font-bold text-slate-500 text-xs tracking-wider h-12">BATCH</TableHead>
+                    <TableHead className="font-bold text-slate-500 text-xs tracking-wider h-12">TOTAL</TableHead>
+                    <TableHead className="font-bold text-slate-500 text-xs tracking-wider h-12">ITEMS</TableHead>
                     <TableHead className="font-bold text-slate-500 text-xs tracking-wider h-12">STATUS</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isFetching ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-10">
+                      <TableCell colSpan={6} className="text-center py-10">
                         <div className="flex justify-center">
                           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
                         </div>
@@ -154,11 +155,11 @@ export default function OrdersPage() {
                     </TableRow>
                   ) : error ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-10 text-red-500 text-sm">{error}</TableCell>
+                      <TableCell colSpan={6} className="text-center py-10 text-red-500 text-sm">{error}</TableCell>
                     </TableRow>
                   ) : orders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-10 text-slate-400 text-sm">No orders found.</TableCell>
+                      <TableCell colSpan={6} className="text-center py-10 text-slate-400 text-sm">No orders found.</TableCell>
                     </TableRow>
                   ) : (
                     orders.map((order) => (
@@ -171,13 +172,16 @@ export default function OrdersPage() {
                           {order.id.slice(0, 8)}…
                         </TableCell>
                         <TableCell className="text-slate-900 font-bold py-4">
-                          {order.customer?.fullName ?? "—"}
-                        </TableCell>
-                        <TableCell className="text-slate-600 font-medium py-4">
-                          {order.seller?.name ?? "—"}
+                          {order.snapshotZoneName ?? "—"}
                         </TableCell>
                         <TableCell className="text-slate-600 py-4 font-medium">
                           {order.batch?.slotLabel ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-slate-600 font-medium py-4">
+                          {order.payableAmount ? `${Number(order.payableAmount).toLocaleString()} RWF` : "—"}
+                        </TableCell>
+                        <TableCell className="text-slate-600 py-4 font-medium text-center">
+                          {order.itemCount ?? "—"}
                         </TableCell>
                         <TableCell className="py-4">
                           {getStatusBadge(order.status)}

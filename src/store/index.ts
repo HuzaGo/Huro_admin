@@ -8,6 +8,7 @@ import sellerReducer from './slices/sellerSlice'
 import userReducer from './slices/userSlice'
 import deliveryZoneReducer from './slices/deliveryZoneSlice'
 import orderReducer from './slices/orderSlice'
+import campusReducer from './slices/campusSlice'
 
 export const store = configureStore({
   reducer: {
@@ -20,6 +21,7 @@ export const store = configureStore({
     users: userReducer,
     deliveryZones: deliveryZoneReducer,
     orders: orderReducer,
+    campuses: campusReducer,
   },
 })
 

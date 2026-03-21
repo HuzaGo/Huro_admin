@@ -23,16 +23,16 @@ export interface OrderItem {
 export interface Order {
   id: string;
   status: OrderStatus;
+  paymentStatus?: string;
+  cartTotal?: string;
+  payableAmount?: string;
   createdAt?: string;
-  paidAt?: string;
-  customer?: { id?: string; fullName?: string; phone?: string; email?: string; [key: string]: any };
-  seller?: { id?: string; name?: string; [key: string]: any };
+  deliveredAt?: string | null;
+  snapshotZoneName?: string;
+  snapshotZoneType?: string;
+  itemCount?: number;
   batch?: { id?: string; slotLabel?: string; [key: string]: any };
   orderItems?: OrderItem[];
-  deliveryName?: string;
-  customAddress?: string;
-  deliveryNote?: string;
-  pickupSignature?: string;
   [key: string]: any;
 }
 
@@ -106,17 +106,12 @@ const orderSlice = createSlice({
       .addCase(fetchOrders.fulfilled, (state, action) => {
         state.isFetching = false;
         const payload = action.payload;
-        const ordersArray =
-          payload?.data?.orders ??
-          payload?.data?.items ??
-          payload?.data ??
-          payload?.orders ??
-          [];
-        state.orders = Array.isArray(ordersArray) ? ordersArray : [];
-        const meta = payload?.data?.meta ?? payload?.meta ?? {};
-        state.totalCount = meta.total ?? meta.totalCount ?? state.orders.length;
-        state.totalPages = meta.totalPages ?? meta.pages ?? 1;
-        state.currentPage = meta.page ?? meta.currentPage ?? 1;
+        // Response shape: { success, data: { data: Order[], meta: {...} } }
+        state.orders = Array.isArray(payload?.data?.data) ? payload.data.data : [];
+        const meta = payload?.data?.meta ?? {};
+        state.totalCount = meta.total ?? state.orders.length;
+        state.totalPages = meta.totalPages ?? 1;
+        state.currentPage = meta.page ?? 1;
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.isFetching = false;

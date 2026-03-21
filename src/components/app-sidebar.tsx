@@ -13,6 +13,7 @@ import {
   Users,
   FolderTree,
   MapPin,
+  School,
   LogOut
 } from "lucide-react";
 import {
@@ -78,6 +79,12 @@ const items = [
     title: "Delivery Zones",
     url: "/delivery-zones",
     icon: MapPin,
+    isActive: false,
+  },
+  {
+    title: "Campuses",
+    url: "/campuses",
+    icon: School,
     isActive: false,
   },
   {
