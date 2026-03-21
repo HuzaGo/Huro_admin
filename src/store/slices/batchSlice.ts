@@ -33,7 +33,8 @@ export interface BatchDetail {
   slotsRemaining?: number;
   status?: string;
   deliveryZone?: OpenBatchDeliveryZone;
-  rider?: { id?: string; user?: { fullName?: string; [key: string]: any }; [key: string]: any } | null;
+  rider?: { id?: string; fullName?: string; phone?: string; [key: string]: any } | null;
+  riders?: { id?: string; fullName?: string; phone?: string; assignedAt?: string; [key: string]: any }[];
   orders?: BatchOrder[];
   [key: string]: any;
 }
@@ -66,7 +67,7 @@ export interface FetchBatchOrdersPayload {
 
 export interface AssignRiderPayload {
   batchId: string;
-  riderId: string;
+  riderIds: string[];
 }
 
 export interface CreateBatchPayload {
@@ -204,7 +205,7 @@ export const fetchBatchDetail = createAsyncThunk(
         return rejectWithValue(data.message || 'Failed to fetch batch detail');
       }
 
-      return (data.data ?? data) as BatchDetail;
+      return (data.data?.batch ?? data.data ?? data) as BatchDetail;
     } catch (error: any) {
       return rejectWithValue(error.message || 'An error occurred');
     }
@@ -220,13 +221,13 @@ export const assignRiderToBatch = createAsyncThunk(
 
       if (!token) return rejectWithValue('Authentication token is missing.');
 
-      const response = await fetch(`/api/v1/batches/${payload.batchId}/assign-rider`, {
+      const response = await fetch(`/api/v1/batches/${payload.batchId}/riders`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ riderId: payload.riderId }),
+        body: JSON.stringify({ riderIds: payload.riderIds }),
       });
 
       const data = await response.json();

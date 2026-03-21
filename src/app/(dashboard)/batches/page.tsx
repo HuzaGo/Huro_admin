@@ -245,20 +245,35 @@ export default function BatchesPage() {
                     )}
                   </CardContent>
 
-                  {/* Rider */}
-                  {batchDetail.rider && (
-                    <CardContent className="px-6 py-5 border-b border-slate-50">
-                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Assigned Rider</p>
-                      <div className="bg-blue-50/50 rounded-xl border border-blue-100 p-4 flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                          <User className="h-5 w-5 text-blue-500" />
+                  {/* Riders */}
+                  {(() => {
+                    const riderList = batchDetail.riders?.length
+                      ? batchDetail.riders
+                      : batchDetail.rider
+                      ? [batchDetail.rider]
+                      : [];
+                    if (!riderList.length) return null;
+                    return (
+                      <CardContent className="px-6 py-5 border-b border-slate-50">
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                          Assigned Rider{riderList.length > 1 ? "s" : ""}
+                        </p>
+                        <div className="space-y-2">
+                          {riderList.map((r, i) => (
+                            <div key={r.id ?? i} className="bg-blue-50/50 rounded-xl border border-blue-100 p-4 flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                                <User className="h-5 w-5 text-blue-500" />
+                              </div>
+                              <div>
+                                <p className="text-[14px] font-bold text-slate-900">{r.fullName ?? "—"}</p>
+                                {r.phone && <p className="text-[12px] text-slate-500">{r.phone}</p>}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <span className="text-[14px] font-bold text-slate-900">
-                          {batchDetail.rider?.user?.fullName ?? "—"}
-                        </span>
-                      </div>
-                    </CardContent>
-                  )}
+                      </CardContent>
+                    );
+                  })()}
 
                   {/* Orders */}
                   <CardContent className="px-6 py-5 border-b border-slate-50">

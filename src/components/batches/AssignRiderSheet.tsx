@@ -58,7 +58,7 @@ export function AssignRiderSheet({ batchId, open, onOpenChange }: Props) {
   const handleSubmit = (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!riderId) return;
-    dispatch(assignRiderToBatch({ batchId, riderId }));
+    dispatch(assignRiderToBatch({ batchId, riderIds: [riderId] }));
   };
 
   return (
