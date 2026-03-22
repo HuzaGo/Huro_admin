@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchUsers, updateUserStatus, deleteUser } from "@/store/slices/userSlice";
-import { Search, Plus, X, Mail, Phone, Calendar, User as UserIcon, ShieldAlert, ShoppingBag, Trash2 } from "lucide-react";
+import { AddUserSheet } from "@/components/users/AddUserSheet";
+import { Search, Plus, X, Mail, Phone, Calendar, ShieldAlert, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Table,
   TableBody,
@@ -67,6 +68,7 @@ const users = [
 export default function UsersPage() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [addUserOpen, setAddUserOpen] = useState(false);
 
   const dispatch = useAppDispatch();
   const { usersList, isFetching } = useAppSelector((state) => state.users);
@@ -120,7 +122,7 @@ export default function UsersPage() {
                   onChange={handleSearch}
                 />
               </div>
-              <Button className="bg-blue-500 hover:bg-blue-600 text-white">
+              <Button className="bg-blue-500 hover:bg-blue-600 text-white" onClick={() => setAddUserOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add User
               </Button>
@@ -205,6 +207,8 @@ export default function UsersPage() {
           </Card>
         </div>
       </div>
+
+      <AddUserSheet open={addUserOpen} onOpenChange={setAddUserOpen} />
 
       {/* Details Side Panel */}
       {selectedUserId && selectedUser && (

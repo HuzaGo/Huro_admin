@@ -20,13 +20,23 @@ export interface FetchUsersParams {
   isActive?: boolean;
 }
 
+export interface CreateUserPayload {
+  fullName: string;
+  email: string;
+  password: string;
+  phone: string;
+  role: 'CUSTOMER' | 'RIDER' | 'ADMIN' | 'SELLER';
+}
+
 interface UserState {
   usersList: User[];
   totalCount: number;
   totalPages: number;
   currentPage: number;
   isFetching: boolean;
+  isLoading: boolean;
   error: string | null;
+  successMessage: string | null;
 }
 
 const initialState: UserState = {
@@ -35,8 +45,46 @@ const initialState: UserState = {
   totalPages: 1,
   currentPage: 1,
   isFetching: false,
+  isLoading: false,
   error: null,
+  successMessage: null,
 };
+
+export const createUser = createAsyncThunk(
+  'users/create',
+  async (payload: CreateUserPayload, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+      if (!token) {
+        return rejectWithValue('Authentication token is missing. Please log in again.');
+      }
+
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/auth/register`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorPayload = data.error || data.message || 'Failed to create user';
+        return rejectWithValue(typeof errorPayload === 'string' ? errorPayload : JSON.stringify(errorPayload));
+      }
+
+      return data;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred while creating user');
+    }
+  }
+);
 
 export const fetchUsers = createAsyncThunk(
   'users/fetch',
@@ -165,9 +213,27 @@ export const deleteUser = createAsyncThunk(
 const userSlice = createSlice({
   name: 'users',
   initialState,
-  reducers: {},
+  reducers: {
+    clearUserMessages(state) {
+      state.error = null;
+      state.successMessage = null;
+    },
+  },
   extraReducers: (builder) => {
     builder
+      .addCase(createUser.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+        state.successMessage = null;
+      })
+      .addCase(createUser.fulfilled, (state) => {
+        state.isLoading = false;
+        state.successMessage = 'User created successfully.';
+      })
+      .addCase(createUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
       .addCase(fetchUsers.pending, (state) => {
         state.isFetching = true;
         state.error = null;
@@ -215,4 +281,5 @@ const userSlice = createSlice({
   },
 });
 
+export const { clearUserMessages } = userSlice.actions;
 export default userSlice.reducer;
