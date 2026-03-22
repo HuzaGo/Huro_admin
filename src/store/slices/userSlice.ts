@@ -196,11 +196,16 @@ export const deleteUser = createAsyncThunk(
         },
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        const errorPayload = data.error || data.message || 'Failed to delete user';
-        return rejectWithValue(typeof errorPayload === 'string' ? errorPayload : JSON.stringify(errorPayload));
+        const text = await response.text();
+        let errorPayload = 'Failed to delete user';
+        try {
+          const data = JSON.parse(text);
+          errorPayload = data.error || data.message || errorPayload;
+        } catch {
+          errorPayload = text || errorPayload;
+        }
+        return rejectWithValue(errorPayload);
       }
 
       return userId;
@@ -277,6 +282,9 @@ const userSlice = createSlice({
       .addCase(deleteUser.fulfilled, (state, action) => {
         state.usersList = state.usersList.filter((u) => u.id !== action.payload);
         state.totalCount = Math.max(0, state.totalCount - 1);
+      })
+      .addCase(deleteUser.rejected, (state, action) => {
+        state.error = action.payload as string;
       });
   },
 });
