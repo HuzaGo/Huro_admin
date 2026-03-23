@@ -9,6 +9,7 @@ import userReducer from './slices/userSlice'
 import deliveryZoneReducer from './slices/deliveryZoneSlice'
 import orderReducer from './slices/orderSlice'
 import campusReducer from './slices/campusSlice'
+import promotionReducer from './slices/promotionSlice'
 
 export const store = configureStore({
   reducer: {
@@ -22,6 +23,7 @@ export const store = configureStore({
     deliveryZones: deliveryZoneReducer,
     orders: orderReducer,
     campuses: campusReducer,
+    promotions: promotionReducer,
   },
 })
 

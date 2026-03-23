@@ -14,7 +14,8 @@ import {
   FolderTree,
   MapPin,
   School,
-  LogOut
+  LogOut,
+  Percent,
 } from "lucide-react";
 import {
   Sidebar,
@@ -85,6 +86,12 @@ const items = [
     title: "Campuses",
     url: "/campuses",
     icon: School,
+    isActive: false,
+  },
+  {
+    title: "Promotions",
+    url: "/promotions",
+    icon: Percent,
     isActive: false,
   },
   {
