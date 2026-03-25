@@ -96,7 +96,7 @@ const items = [
   },
   {
     title: "Used Listings",
-    url: "#",
+    url: "/used-listings",
     icon: Tags,
     isActive: false,
   },
