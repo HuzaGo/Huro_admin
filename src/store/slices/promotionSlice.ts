@@ -1,31 +1,44 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
-export type PromotionScope = 'CART_WIDE' | 'CATEGORY' | 'PRODUCT';
+export type PromotionType = 'DISCOUNT' | 'ADDITIONAL' | 'FREE_DELIVERY' | 'CASHBACK' | 'FLASH_SALE';
+export type PromotionScope = 'CART_WIDE' | 'CATEGORY' | 'SPECIFIC' | 'BUNDLE' | 'PRODUCT';
 export type DiscountType = 'PERCENTAGE' | 'FIXED';
 
 export interface Promotion {
   id: string;
   title: string;
+  description?: string;
+  bannerUrl?: string;
+  type: PromotionType;
   scope: PromotionScope;
   categoryId?: string;
   productIds?: string[];
   discountType: DiscountType;
   discountValue: number;
   minCartValue: number;
+  minQuantity?: number | null;
+  freeQuantity?: number | null;
   startsAt: string;
   endsAt: string;
   isActive?: boolean;
   createdAt?: string;
+  category?: { id: string; name: string } | null;
+  products?: any[];
+  categoryGates?: any[];
 }
 
 export interface CreatePromotionPayload {
   title: string;
+  description?: string;
+  type: PromotionType;
   scope: PromotionScope;
   categoryId: string | null;
   productIds: string[] | null;
   discountType: DiscountType;
   discountValue: number;
   minCartValue: number;
+  minQuantity?: number | null;
+  freeQuantity?: number | null;
   startsAt: string;
   endsAt: string;
 }
@@ -33,9 +46,6 @@ export interface CreatePromotionPayload {
 interface PromotionState {
   promotionsList: Promotion[];
   activePromotionsList: Promotion[];
-  totalActive: number;
-  totalPagesActive: number;
-  currentPageActive: number;
   isFetching: boolean;
   isFetchingActive: boolean;
   isCreating: boolean;
@@ -48,9 +58,6 @@ interface PromotionState {
 const initialState: PromotionState = {
   promotionsList: [],
   activePromotionsList: [],
-  totalActive: 0,
-  totalPagesActive: 1,
-  currentPageActive: 1,
   isFetching: false,
   isFetchingActive: false,
   isCreating: false,
@@ -89,21 +96,12 @@ export const fetchPromotions = createAsyncThunk(
   }
 );
 
+// No auth required — returns a flat array: { data: [...] }
 export const fetchActivePromotions = createAsyncThunk(
   'promotions/fetchActive',
-  async ({ page = 1, limit = 20 }: { page?: number; limit?: number } = {}, { getState, rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const state: any = getState();
-      const token =
-        state.auth.token ||
-        (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
-
-      if (!token) return rejectWithValue('Authentication token is missing.');
-
-      const qs = new URLSearchParams({ page: String(page), limit: String(limit) }).toString();
-      const response = await fetch(`/api/v1/promotions/active?${qs}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch('/api/v1/promotions/active');
 
       const data = await response.json();
 
@@ -142,7 +140,6 @@ export const createPromotion = createAsyncThunk(
       const data = await response.json();
 
       if (!response.ok) {
-        // Surface field-level validation details when present
         if (Array.isArray(data.details) && data.details.length > 0) {
           const detail = data.details
             .map((d: any) => `${d.field}: ${d.message}`)
@@ -177,11 +174,9 @@ const promotionSlice = createSlice({
       })
       .addCase(fetchActivePromotions.fulfilled, (state, action) => {
         state.isFetchingActive = false;
-        const { items, meta } = action.payload?.data ?? {};
-        state.activePromotionsList = Array.isArray(items) ? items : [];
-        state.totalActive = meta?.total ?? 0;
-        state.currentPageActive = meta?.page ?? 1;
-        state.totalPagesActive = meta?.totalPages ?? 1;
+        // Response: { success: true, data: [...] }
+        const list = action.payload?.data;
+        state.activePromotionsList = Array.isArray(list) ? list : [];
       })
       .addCase(fetchActivePromotions.rejected, (state, action) => {
         state.isFetchingActive = false;
@@ -214,7 +209,7 @@ const promotionSlice = createSlice({
         state.createSuccess = action.payload?.message || 'Promotion created successfully!';
         const promo = action.payload?.data ?? action.payload;
         if (promo?.id) {
-          state.promotionsList = [promo, ...state.promotionsList];
+          state.activePromotionsList = [promo, ...state.activePromotionsList];
         }
       })
       .addCase(createPromotion.rejected, (state, action) => {

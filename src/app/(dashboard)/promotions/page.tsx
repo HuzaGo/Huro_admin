@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Tag, Plus, ChevronLeft, ChevronRight, X, Search } from "lucide-react";
+import { Tag, Plus, X, Search } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   fetchActivePromotions,
   createPromotion,
   clearPromotionMessages,
   PromotionScope,
+  PromotionType,
   DiscountType,
 } from "@/store/slices/promotionSlice";
 import { fetchCategories } from "@/store/slices/categorySlice";
@@ -41,15 +42,38 @@ import {
 
 const emptyForm = {
   title: "",
+  description: "",
+  type: "DISCOUNT" as PromotionType,
   scope: "CART_WIDE" as PromotionScope,
   categoryId: "",
   selectedProductIds: [] as string[],
   discountType: "PERCENTAGE" as DiscountType,
   discountValue: 0,
   minCartValue: 0,
+  minQuantity: "" as string,
+  freeQuantity: "" as string,
   startsAt: "",
   endsAt: "",
 };
+
+const TYPE_COLORS: Record<PromotionType, string> = {
+  DISCOUNT:      "bg-blue-50 text-blue-700",
+  ADDITIONAL:    "bg-purple-50 text-purple-700",
+  FREE_DELIVERY: "bg-green-50 text-green-700",
+  CASHBACK:      "bg-yellow-50 text-yellow-700",
+  FLASH_SALE:    "bg-red-50 text-red-700",
+};
+
+const SCOPE_COLORS: Record<PromotionScope, string> = {
+  CART_WIDE: "bg-blue-50 text-blue-600",
+  CATEGORY:  "bg-purple-50 text-purple-600",
+  SPECIFIC:  "bg-orange-50 text-orange-600",
+  BUNDLE:    "bg-teal-50 text-teal-600",
+  PRODUCT:   "bg-orange-50 text-orange-600",
+};
+
+// Scopes that require product selection
+const PRODUCT_SCOPES: PromotionScope[] = ["SPECIFIC", "BUNDLE", "PRODUCT"];
 
 export default function PromotionsPage() {
   const dispatch = useAppDispatch();
@@ -57,9 +81,6 @@ export default function PromotionsPage() {
     activePromotionsList,
     isFetchingActive,
     activeError,
-    totalActive,
-    currentPageActive,
-    totalPagesActive,
     isCreating,
     createError,
     createSuccess,
@@ -72,10 +93,9 @@ export default function PromotionsPage() {
   const [productSearch, setProductSearch] = useState("");
 
   useEffect(() => {
-    dispatch(fetchActivePromotions({ page: currentPageActive, limit: 20 }));
-  }, [dispatch, currentPageActive]);
+    dispatch(fetchActivePromotions());
+  }, [dispatch]);
 
-  // Load categories and products when the sheet opens
   useEffect(() => {
     if (isSheetOpen) {
       if (categories.length === 0) dispatch(fetchCategories());
@@ -112,15 +132,22 @@ export default function PromotionsPage() {
     if (!endsAt || isNaN(endsAt.getTime())) return;
     if (endsAt <= startsAt) return;
 
+    const isProductScope = PRODUCT_SCOPES.includes(form.scope);
+    const isBXGY = form.type === "ADDITIONAL";
+
     const result = await dispatch(
       createPromotion({
         title: form.title.trim(),
+        ...(form.description.trim() && { description: form.description.trim() }),
+        type: form.type,
         scope: form.scope,
         categoryId: form.scope === "CATEGORY" ? form.categoryId : null,
-        productIds: form.scope === "PRODUCT" ? form.selectedProductIds : null,
+        productIds: isProductScope ? form.selectedProductIds : null,
         discountType: form.discountType,
         discountValue: Number(form.discountValue),
         minCartValue: Number(form.minCartValue),
+        ...(isBXGY && form.minQuantity && { minQuantity: Number(form.minQuantity) }),
+        ...(isBXGY && form.freeQuantity && { freeQuantity: Number(form.freeQuantity) }),
         startsAt: startsAt.toISOString(),
         endsAt: endsAt.toISOString(),
       })
@@ -134,26 +161,19 @@ export default function PromotionsPage() {
   const formatDate = (iso: string) =>
     iso ? new Date(iso).toLocaleDateString() : "—";
 
-  const scopeColor: Record<PromotionScope, string> = {
-    CART_WIDE: "bg-blue-50 text-blue-600",
-    CATEGORY: "bg-purple-50 text-purple-600",
-    PRODUCT: "bg-orange-50 text-orange-600",
-  };
-
   const filteredProducts = products.filter((p) =>
     p.name.toLowerCase().includes(productSearch.toLowerCase())
   );
 
-  const selectedProductNames = form.selectedProductIds
-    .map((id) => products.find((p) => p.id === id)?.name ?? id)
-    .filter(Boolean);
+  const isProductScope = PRODUCT_SCOPES.includes(form.scope);
+  const isBXGY = form.type === "ADDITIONAL";
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Promotions</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage discount promotions.</p>
+          <p className="text-sm text-gray-500 mt-1">Manage active discount promotions.</p>
         </div>
         <Button onClick={() => setIsSheetOpen(true)}>
           <Plus className="h-4 w-4 mr-2" /> New Promotion
@@ -178,73 +198,55 @@ export default function PromotionsPage() {
           <p className="text-sm">No active promotions found.</p>
         </div>
       ) : (
-        <>
-          <div className="rounded-xl border border-gray-100 overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50">
-                  <TableHead>Title</TableHead>
-                  <TableHead>Scope</TableHead>
-                  <TableHead>Discount</TableHead>
-                  <TableHead>Min Cart</TableHead>
-                  <TableHead>Starts</TableHead>
-                  <TableHead>Ends</TableHead>
+        <div className="rounded-xl border border-gray-100 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-gray-50">
+                <TableHead>Title</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Scope</TableHead>
+                <TableHead>Discount</TableHead>
+                <TableHead>Min Cart</TableHead>
+                <TableHead>Starts</TableHead>
+                <TableHead>Ends</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {activePromotionsList.map((promo) => (
+                <TableRow key={promo.id}>
+                  <TableCell>
+                    <div className="font-medium text-gray-900">{promo.title}</div>
+                    {promo.description && (
+                      <div className="text-xs text-gray-400 truncate max-w-48">{promo.description}</div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className={TYPE_COLORS[promo.type] ?? ""}>
+                      {promo.type.replace("_", " ")}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className={SCOPE_COLORS[promo.scope] ?? ""}>
+                      {promo.scope.replace("_", " ")}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {promo.type === "FREE_DELIVERY"
+                      ? "Free delivery"
+                      : promo.type === "ADDITIONAL" && promo.minQuantity && promo.freeQuantity
+                      ? `Buy ${promo.minQuantity} get ${promo.freeQuantity} free`
+                      : `${promo.discountValue}${promo.discountType === "PERCENTAGE" ? "%" : " RWF"}`}
+                  </TableCell>
+                  <TableCell className="text-sm text-gray-600">
+                    {promo.minCartValue ? `${Number(promo.minCartValue).toLocaleString()} RWF` : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-gray-500">{formatDate(promo.startsAt)}</TableCell>
+                  <TableCell className="text-sm text-gray-500">{formatDate(promo.endsAt)}</TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {activePromotionsList.map((promo) => (
-                  <TableRow key={promo.id}>
-                    <TableCell className="font-medium">{promo.title}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={scopeColor[promo.scope] ?? ""}
-                      >
-                        {promo.scope}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {promo.discountValue}
-                      {promo.discountType === "PERCENTAGE" ? "%" : " (fixed)"}
-                    </TableCell>
-                    <TableCell>{promo.minCartValue}</TableCell>
-                    <TableCell>{formatDate(promo.startsAt)}</TableCell>
-                    <TableCell>{formatDate(promo.endsAt)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {totalPagesActive > 1 && (
-            <div className="flex items-center justify-between text-sm text-gray-500">
-              <span>{totalActive} active promotion{totalActive !== 1 ? "s" : ""}</span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  disabled={currentPageActive <= 1}
-                  onClick={() =>
-                    dispatch(fetchActivePromotions({ page: currentPageActive - 1, limit: 20 }))
-                  }
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span>{currentPageActive} / {totalPagesActive}</span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  disabled={currentPageActive >= totalPagesActive}
-                  onClick={() =>
-                    dispatch(fetchActivePromotions({ page: currentPageActive + 1, limit: 20 }))
-                  }
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
@@ -281,6 +283,81 @@ export default function PromotionsPage() {
               />
             </div>
 
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="promo-desc">
+                Description <span className="text-gray-400 font-normal">(optional)</span>
+              </Label>
+              <Input
+                id="promo-desc"
+                placeholder="e.g. Get 20% off everything this weekend"
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                disabled={isCreating}
+              />
+            </div>
+
+            {/* Type */}
+            <div className="space-y-2">
+              <Label>
+                Type <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={form.type}
+                onValueChange={(v) =>
+                  setForm((f) => ({ ...f, type: v as PromotionType, minQuantity: "", freeQuantity: "" }))
+                }
+                disabled={isCreating}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DISCOUNT">Discount — reduces subtotal</SelectItem>
+                  <SelectItem value="ADDITIONAL">Additional — Buy X Get Y free</SelectItem>
+                  <SelectItem value="FREE_DELIVERY">Free Delivery — waives delivery fee</SelectItem>
+                  <SelectItem value="CASHBACK">Cashback — credited to wallet after delivery</SelectItem>
+                  <SelectItem value="FLASH_SALE">Flash Sale — time-limited steep discount</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* BXGY fields */}
+            {isBXGY && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="promo-min-qty">
+                    Buy Qty <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="promo-min-qty"
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 3"
+                    value={form.minQuantity}
+                    onChange={(e) => setForm((f) => ({ ...f, minQuantity: e.target.value }))}
+                    required={isBXGY}
+                    disabled={isCreating}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="promo-free-qty">
+                    Get Free Qty <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="promo-free-qty"
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 1"
+                    value={form.freeQuantity}
+                    onChange={(e) => setForm((f) => ({ ...f, freeQuantity: e.target.value }))}
+                    required={isBXGY}
+                    disabled={isCreating}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Scope */}
             <div className="space-y-2">
               <Label>
@@ -302,9 +379,11 @@ export default function PromotionsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CART_WIDE">Cart Wide — applies to entire cart</SelectItem>
-                  <SelectItem value="CATEGORY">Category — applies to a category</SelectItem>
-                  <SelectItem value="PRODUCT">Product — applies to specific products</SelectItem>
+                  <SelectItem value="CART_WIDE">Cart Wide — entire cart</SelectItem>
+                  <SelectItem value="CATEGORY">Category — specific category</SelectItem>
+                  <SelectItem value="PRODUCT">Product — single product</SelectItem>
+                  <SelectItem value="SPECIFIC">Specific — listed products</SelectItem>
+                  <SelectItem value="BUNDLE">Bundle — all products must be in cart</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -334,15 +413,14 @@ export default function PromotionsPage() {
               </div>
             )}
 
-            {/* Product multi-picker */}
-            {form.scope === "PRODUCT" && (
+            {/* Product multi-picker for PRODUCT / SPECIFIC / BUNDLE */}
+            {isProductScope && (
               <div className="space-y-2">
                 <Label>
                   Products <span className="text-red-500">*</span>
                 </Label>
 
-                {/* Selected product badges */}
-                {selectedProductNames.length > 0 && (
+                {form.selectedProductIds.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {form.selectedProductIds.map((id) => {
                       const name = products.find((p) => p.id === id)?.name ?? id;
@@ -352,11 +430,7 @@ export default function PromotionsPage() {
                           className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2 py-0.5"
                         >
                           {name}
-                          <button
-                            type="button"
-                            onClick={() => toggleProduct(id)}
-                            className="hover:text-blue-900"
-                          >
+                          <button type="button" onClick={() => toggleProduct(id)} className="hover:text-blue-900">
                             <X className="h-3 w-3" />
                           </button>
                         </span>
@@ -365,7 +439,6 @@ export default function PromotionsPage() {
                   </div>
                 )}
 
-                {/* Search */}
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-gray-400" />
                   <Input
@@ -377,7 +450,6 @@ export default function PromotionsPage() {
                   />
                 </div>
 
-                {/* Scrollable product list */}
                 <div className="border border-gray-100 rounded-lg overflow-y-auto max-h-48">
                   {filteredProducts.length === 0 ? (
                     <p className="text-xs text-gray-400 text-center py-4">No products found.</p>
@@ -390,15 +462,11 @@ export default function PromotionsPage() {
                           type="button"
                           onClick={() => toggleProduct(product.id)}
                           disabled={isCreating}
-                          className={`w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 ${
-                            selected ? "bg-blue-50" : ""
-                          }`}
+                          className={`w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 ${selected ? "bg-blue-50" : ""}`}
                         >
                           <span
                             className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 ${
-                              selected
-                                ? "bg-blue-600 border-blue-600"
-                                : "border-gray-300"
+                              selected ? "bg-blue-600 border-blue-600" : "border-gray-300"
                             }`}
                           >
                             {selected && (
@@ -408,14 +476,13 @@ export default function PromotionsPage() {
                             )}
                           </span>
                           <span className="truncate font-medium text-gray-800">{product.name}</span>
-                          <span className="ml-auto text-xs text-gray-400 shrink-0">
-                            {product.price} RWF
-                          </span>
+                          <span className="ml-auto text-xs text-gray-400 shrink-0">{product.price} RWF</span>
                         </button>
                       );
                     })
                   )}
                 </div>
+
                 {form.selectedProductIds.length === 0 && (
                   <p className="text-xs text-gray-400">Select at least one product.</p>
                 )}
@@ -429,9 +496,7 @@ export default function PromotionsPage() {
               </Label>
               <Select
                 value={form.discountType}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, discountType: v as DiscountType }))
-                }
+                onValueChange={(v) => setForm((f) => ({ ...f, discountType: v as DiscountType }))}
                 disabled={isCreating}
               >
                 <SelectTrigger>
@@ -439,7 +504,7 @@ export default function PromotionsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="PERCENTAGE">Percentage (%)</SelectItem>
-                  <SelectItem value="FIXED">Fixed amount</SelectItem>
+                  <SelectItem value="FIXED">Fixed amount (RWF)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -458,24 +523,20 @@ export default function PromotionsPage() {
                   max={form.discountType === "PERCENTAGE" ? 100 : undefined}
                   step="any"
                   value={form.discountValue}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, discountValue: Number(e.target.value) }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, discountValue: Number(e.target.value) }))}
                   required
                   disabled={isCreating}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="promo-min-cart">Min Cart Value</Label>
+                <Label htmlFor="promo-min-cart">Min Cart (RWF)</Label>
                 <Input
                   id="promo-min-cart"
                   type="number"
                   min="0"
                   step="any"
                   value={form.minCartValue}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, minCartValue: Number(e.target.value) }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, minCartValue: Number(e.target.value) }))}
                   disabled={isCreating}
                 />
               </div>
@@ -518,7 +579,8 @@ export default function PromotionsPage() {
                 isCreating ||
                 !form.title.trim() ||
                 (form.scope === "CATEGORY" && !form.categoryId) ||
-                (form.scope === "PRODUCT" && form.selectedProductIds.length === 0)
+                (isProductScope && form.selectedProductIds.length === 0) ||
+                (isBXGY && (!form.minQuantity || !form.freeQuantity))
               }
             >
               {isCreating ? "Creating..." : "Create Promotion"}
