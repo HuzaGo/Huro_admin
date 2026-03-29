@@ -79,6 +79,10 @@ interface SellerState {
   assignError: string | null;
   isUpdating: boolean;
   updateError: string | null;
+  isUpdatingProduct: boolean;
+  updateProductError: string | null;
+  isUnassigning: boolean;
+  unassignError: string | null;
 }
 
 const initialState: SellerState = {
@@ -99,6 +103,10 @@ const initialState: SellerState = {
   assignError: null,
   isUpdating: false,
   updateError: null,
+  isUpdatingProduct: false,
+  updateProductError: null,
+  isUnassigning: false,
+  unassignError: null,
 };
 
 const normalizeSeller = (item: any): Seller => ({
@@ -174,7 +182,7 @@ export const fetchSellerProducts = createAsyncThunk(
       }
 
       const qs = new URLSearchParams({ page: String(page), limit: String(limit) }).toString();
-      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/sellers/${sellerId}/products?${qs}`;
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/sellers/${sellerId}/products/all?${qs}`;
 
       const response = await fetch(url, {
         method: 'GET',
@@ -247,6 +255,7 @@ export interface AssignProductPayload {
   productId: string;
   price: number;
   stockQuantity: number;
+  rank?: number;
   customName?: string;
   customDescription?: string;
 }
@@ -314,6 +323,70 @@ export const updateSeller = createAsyncThunk(
       return data;
     } catch (error: any) {
       return rejectWithValue(error.message || 'An error occurred while updating seller');
+    }
+  }
+);
+
+export interface UpdateSellerProductPayload {
+  sellerId: string;
+  spId: string;
+  price?: number;
+  stockQuantity?: number;
+  isAvailable?: boolean;
+}
+
+export const updateSellerProduct = createAsyncThunk(
+  'sellers/updateSellerProduct',
+  async (payload: UpdateSellerProductPayload, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+      if (!token) return rejectWithValue('Authentication token is missing.');
+
+      const { sellerId, spId, ...body } = payload;
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/sellers/${sellerId}/products/${spId}`;
+
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        const msg = data?.error?.message || data?.message || 'Failed to update product';
+        return rejectWithValue(msg);
+      }
+      return { ...data, spId };
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred');
+    }
+  }
+);
+
+export const unassignSellerProduct = createAsyncThunk(
+  'sellers/unassignSellerProduct',
+  async ({ sellerId, spId }: { sellerId: string; spId: string }, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token = state.auth.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+      if (!token) return rejectWithValue('Authentication token is missing.');
+
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/sellers/${sellerId}/products/${spId}`;
+
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        const msg = data?.error?.message || data?.message || 'Failed to unassign product';
+        return rejectWithValue(msg);
+      }
+      return spId;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred');
     }
   }
 );
@@ -460,6 +533,37 @@ const sellerSlice = createSlice({
       .addCase(assignProductToSeller.rejected, (state, action) => {
         state.isAssigning = false;
         state.assignError = action.payload as string;
+      })
+      // Update Seller Product
+      .addCase(updateSellerProduct.pending, (state) => {
+        state.isUpdatingProduct = true;
+        state.updateProductError = null;
+      })
+      .addCase(updateSellerProduct.fulfilled, (state, action) => {
+        state.isUpdatingProduct = false;
+        const updated = action.payload?.data ?? action.payload;
+        if (updated?.id) {
+          state.sellerProducts = state.sellerProducts.map((p) =>
+            p.id === updated.id ? { ...p, ...updated } : p
+          );
+        }
+      })
+      .addCase(updateSellerProduct.rejected, (state, action) => {
+        state.isUpdatingProduct = false;
+        state.updateProductError = action.payload as string;
+      })
+      // Unassign Seller Product
+      .addCase(unassignSellerProduct.pending, (state) => {
+        state.isUnassigning = true;
+        state.unassignError = null;
+      })
+      .addCase(unassignSellerProduct.fulfilled, (state, action) => {
+        state.isUnassigning = false;
+        state.sellerProducts = state.sellerProducts.filter((p) => p.id !== action.payload);
+      })
+      .addCase(unassignSellerProduct.rejected, (state, action) => {
+        state.isUnassigning = false;
+        state.unassignError = action.payload as string;
       })
       // Update Seller
       .addCase(updateSeller.pending, (state) => {

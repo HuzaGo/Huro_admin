@@ -22,7 +22,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-const emptyForm = { price: "", stockQuantity: "", customName: "", customDescription: "" };
+const emptyForm = { price: "", stockQuantity: "", rank: "", customName: "", customDescription: "" };
 
 export function AssignProductSheet({ sellerId, open, onOpenChange }: Props) {
   const dispatch = useAppDispatch();
@@ -55,7 +55,7 @@ export function AssignProductSheet({ sellerId, open, onOpenChange }: Props) {
 
   const selectedProduct = products.find((p) => p.id === selectedProductId);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!selectedProductId) return;
 
@@ -64,6 +64,7 @@ export function AssignProductSheet({ sellerId, open, onOpenChange }: Props) {
       productId: selectedProductId,
       price: parseFloat(form.price),
       stockQuantity: parseInt(form.stockQuantity, 10),
+      ...(form.rank && { rank: parseInt(form.rank, 10) }),
       ...(form.customName && { customName: form.customName }),
       ...(form.customDescription && { customDescription: form.customDescription }),
     }));
@@ -161,6 +162,19 @@ export function AssignProductSheet({ sellerId, open, onOpenChange }: Props) {
                 required
               />
             </div>
+          </div>
+
+          {/* Rank */}
+          <div className="space-y-2">
+            <Label htmlFor="rank">Rank <span className="text-gray-400 font-normal">(optional)</span></Label>
+            <Input
+              id="rank"
+              type="number"
+              min="1"
+              placeholder="e.g. 1"
+              value={form.rank}
+              onChange={set("rank")}
+            />
           </div>
 
           {/* Optional overrides */}

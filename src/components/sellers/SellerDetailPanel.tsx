@@ -2,12 +2,18 @@ import Image from "next/image";
 import { useState } from "react";
 import { Plus, Store, X, MapPin, ExternalLink, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { SellerProductItem } from "@/components/sellers/SellerProductItem";
 import { AssignProductSheet } from "@/components/sellers/AssignProductSheet";
 import { EditSellerSheet } from "@/components/sellers/EditSellerSheet";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { deleteSeller } from "@/store/slices/sellerSlice";
+import {
+  deleteSeller,
+  updateSellerProduct,
+  unassignSellerProduct,
+} from "@/store/slices/sellerSlice";
 import type { Seller, SellerProduct } from "@/store/slices/sellerSlice";
 
 interface Props {
@@ -18,16 +24,59 @@ interface Props {
   onClose: () => void;
 }
 
+interface EditForm {
+  price: string;
+  stockQuantity: string;
+  isAvailable: boolean;
+}
+
 export function SellerDetailPanel({ seller, products, isFetchingProducts, productsError, onClose }: Props) {
   const dispatch = useAppDispatch();
-  const { isDeleting, deleteError } = useAppSelector((s) => s.sellers);
+  const { isDeleting, deleteError, isUpdatingProduct, updateProductError, isUnassigning, unassignError } =
+    useAppSelector((s) => s.sellers);
+
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
+  // Product edit state
+  const [editingProduct, setEditingProduct] = useState<SellerProduct | null>(null);
+  const [editForm, setEditForm] = useState<EditForm>({ price: "", stockQuantity: "", isAvailable: true });
+
+  // Product delete confirm
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+
   const handleDelete = async () => {
     const result = await dispatch(deleteSeller(seller.id));
     if (deleteSeller.fulfilled.match(result)) onClose();
+  };
+
+  const openEditProduct = (item: SellerProduct) => {
+    setEditingProduct(item);
+    setEditForm({
+      price: String(item.price),
+      stockQuantity: String(item.stockQuantity),
+      isAvailable: item.isAvailable,
+    });
+  };
+
+  const handleUpdateProduct = async () => {
+    if (!editingProduct) return;
+    const result = await dispatch(
+      updateSellerProduct({
+        sellerId: seller.id,
+        spId: editingProduct.id,
+        price: Number(editForm.price),
+        stockQuantity: Number(editForm.stockQuantity),
+        isAvailable: editForm.isAvailable,
+      })
+    );
+    if (updateSellerProduct.fulfilled.match(result)) setEditingProduct(null);
+  };
+
+  const handleUnassign = async (spId: string) => {
+    const result = await dispatch(unassignSellerProduct({ sellerId: seller.id, spId }));
+    if (unassignSellerProduct.fulfilled.match(result)) setDeletingProductId(null);
   };
 
   return (
@@ -106,9 +155,7 @@ export function SellerDetailPanel({ seller, products, isFetchingProducts, produc
             </div>
           )}
 
-          {deleteError && (
-            <p className="text-sm text-red-500 text-center">{deleteError}</p>
-          )}
+          {deleteError && <p className="text-sm text-red-500 text-center">{deleteError}</p>}
         </div>
 
         <Separator className="bg-gray-100" />
@@ -116,6 +163,7 @@ export function SellerDetailPanel({ seller, products, isFetchingProducts, produc
         {/* Product Inventory */}
         <div>
           <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Product Inventory</h4>
+
           {isFetchingProducts ? (
             <div className="flex justify-center py-6">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
@@ -126,7 +174,119 @@ export function SellerDetailPanel({ seller, products, isFetchingProducts, produc
             <p className="text-sm text-gray-400 text-center py-4">No products found for this seller.</p>
           ) : (
             <div className="space-y-3">
-              {products.map((item) => <SellerProductItem key={item.id} item={item} />)}
+              {products.map((item) => (
+                <div key={item.id}>
+                  {/* Edit inline form */}
+                  {editingProduct?.id === item.id ? (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 space-y-3">
+                      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+                        Editing: {item.customName || item.product.name}
+                      </p>
+
+                      {updateProductError && (
+                        <p className="text-xs text-red-500">{updateProductError}</p>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Price (RWF)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={editForm.price}
+                            onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
+                            disabled={isUpdatingProduct}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Stock</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={editForm.stockQuantity}
+                            onChange={(e) => setEditForm((f) => ({ ...f, stockQuantity: e.target.value }))}
+                            disabled={isUpdatingProduct}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditForm((f) => ({ ...f, isAvailable: !f.isAvailable }))}
+                          disabled={isUpdatingProduct}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                            editForm.isAvailable ? "bg-blue-600" : "bg-gray-200"
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                              editForm.isAvailable ? "translate-x-4" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                        <Label className="text-xs">
+                          {editForm.isAvailable ? "Available" : "Unavailable"}
+                        </Label>
+                      </div>
+
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-8 text-xs"
+                          onClick={() => setEditingProduct(null)}
+                          disabled={isUpdatingProduct}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1 h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                          onClick={handleUpdateProduct}
+                          disabled={isUpdatingProduct}
+                        >
+                          {isUpdatingProduct ? "Saving..." : "Save"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : deletingProductId === item.id ? (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
+                      <p className="text-xs text-red-700 font-medium text-center">
+                        Remove <span className="font-bold">{item.customName || item.product.name}</span> from this seller?
+                      </p>
+                      {unassignError && <p className="text-xs text-red-500 text-center">{unassignError}</p>}
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-8 text-xs"
+                          onClick={() => setDeletingProductId(null)}
+                          disabled={isUnassigning}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1 h-8 text-xs bg-red-600 hover:bg-red-700 text-white"
+                          onClick={() => handleUnassign(item.id)}
+                          disabled={isUnassigning}
+                        >
+                          {isUnassigning ? "Removing..." : "Remove"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <SellerProductItem
+                      item={item}
+                      onEdit={openEditProduct}
+                      onDelete={(p) => setDeletingProductId(p.id)}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
