@@ -32,13 +32,13 @@ export interface CreatePromotionPayload {
   description?: string;
   type: PromotionType;
   scope: PromotionScope;
-  categoryId: string | null;
-  productIds: string[] | null;
+  categoryId?: string;
+  productIds?: string[];
   discountType: DiscountType;
   discountValue: number;
   minCartValue: number;
-  minQuantity?: number | null;
-  freeQuantity?: number | null;
+  minQuantity?: number;
+  freeQuantity?: number;
   startsAt: string;
   endsAt: string;
 }

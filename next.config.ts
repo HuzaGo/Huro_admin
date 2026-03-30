@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'https://huzago-backend.onrender.com/api/:path*',
+        destination: 'https://huzago-backend-1.onrender.com/api/:path*',
       },
     ]
   },
