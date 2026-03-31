@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Tag, Plus, X, Search, Trash2 } from "lucide-react";
+import { Tag, Plus, X, Search, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
-  fetchActivePromotions,
+  fetchPromotions,
   createPromotion,
   clearPromotionMessages,
   PromotionScope,
@@ -100,9 +100,12 @@ const emptyForm: FormState = {
 export default function PromotionsPage() {
   const dispatch = useAppDispatch();
   const {
-    activePromotionsList,
-    isFetchingActive,
-    activeError,
+    promotionsList,
+    isFetching,
+    error,
+    total,
+    currentPage,
+    totalPages,
     isCreating,
     createError,
     createSuccess,
@@ -114,8 +117,30 @@ export default function PromotionsPage() {
   const [form, setForm] = useState(emptyForm);
   const [productSearch, setProductSearch] = useState("");
   const [catGateSearch, setCatGateSearch] = useState("");
+  const [filterScope, setFilterScope] = useState<PromotionScope | "">("");
+  const [filterActive, setFilterActive] = useState<"" | "true" | "false">("");
 
-  useEffect(() => { dispatch(fetchActivePromotions()); }, [dispatch]);
+  useEffect(() => {
+    dispatch(fetchPromotions({ page: 1, limit: 20 }));
+  }, [dispatch]);
+
+  const applyFilters = (page = 1) => {
+    dispatch(fetchPromotions({
+      page,
+      limit: 20,
+      ...(filterScope && { scope: filterScope }),
+      ...(filterActive !== "" && { isActive: filterActive === "true" }),
+    }));
+  };
+
+  useEffect(() => {
+    dispatch(fetchPromotions({
+      page: 1,
+      limit: 20,
+      ...(filterScope && { scope: filterScope }),
+      ...(filterActive !== "" && { isActive: filterActive === "true" }),
+    }));
+  }, [dispatch, filterScope, filterActive]);
 
   useEffect(() => {
     if (isSheetOpen) {
@@ -248,73 +273,113 @@ export default function PromotionsPage() {
         </Button>
       </div>
 
-      {activeError && (
-        <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md">{activeError}</div>
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3">
+        <Select value={filterScope || "ALL"} onValueChange={(v) => setFilterScope(v === "ALL" ? "" : v as PromotionScope)}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="All Scopes" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Scopes</SelectItem>
+            <SelectItem value="CART_WIDE">Cart Wide</SelectItem>
+            <SelectItem value="CATEGORY">Category</SelectItem>
+            <SelectItem value="PRODUCT">Product</SelectItem>
+            <SelectItem value="SPECIFIC">Specific</SelectItem>
+            <SelectItem value="BUNDLE">Bundle</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterActive || "ALL"} onValueChange={(v) => setFilterActive(v === "ALL" ? "" : v as "true" | "false")}>
+          <SelectTrigger className="w-36"><SelectValue placeholder="All Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Status</SelectItem>
+            <SelectItem value="true">Active</SelectItem>
+            <SelectItem value="false">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {error && (
+        <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md">{error}</div>
       )}
 
-      {isFetchingActive ? (
+      {isFetching ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="h-12 rounded-xl bg-gray-100 animate-pulse" />
           ))}
         </div>
-      ) : activePromotionsList.length === 0 ? (
+      ) : promotionsList.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
           <Tag className="h-10 w-10" />
-          <p className="text-sm">No active promotions found.</p>
+          <p className="text-sm">No promotions found.</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-gray-100 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead>Title</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Scope</TableHead>
-                <TableHead>Discount</TableHead>
-                <TableHead>Min Cart</TableHead>
-                <TableHead>Starts</TableHead>
-                <TableHead>Ends</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {activePromotionsList.map((promo) => (
-                <TableRow key={promo.id}>
-                  <TableCell>
-                    <div className="font-medium text-gray-900">{promo.title}</div>
-                    {promo.description && (
-                      <div className="text-xs text-gray-400 truncate max-w-48">{promo.description}</div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className={TYPE_COLORS[promo.type] ?? ""}>
-                      {promo.type.replace("_", " ")}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className={SCOPE_COLORS[promo.scope] ?? ""}>
-                      {promo.scope.replace("_", " ")}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {promo.type === "FREE_DELIVERY"
-                      ? "Free delivery"
-                      : promo.type === "ADDITIONAL" && promo.minQuantity && promo.freeQuantity
-                      ? `Buy ${promo.minQuantity} get ${promo.freeQuantity} free`
-                      : promo.discountValue
-                      ? `${promo.discountValue}${promo.discountType === "PERCENTAGE" ? "%" : " RWF"}`
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="text-sm text-gray-600">
-                    {promo.minCartValue ? `${Number(promo.minCartValue).toLocaleString()} RWF` : "—"}
-                  </TableCell>
-                  <TableCell className="text-sm text-gray-500">{formatDate(promo.startsAt)}</TableCell>
-                  <TableCell className="text-sm text-gray-500">{formatDate(promo.endsAt)}</TableCell>
+        <>
+          <div className="rounded-xl border border-gray-100 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50">
+                  <TableHead>Title</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Scope</TableHead>
+                  <TableHead>Discount</TableHead>
+                  <TableHead>Min Cart</TableHead>
+                  <TableHead>Starts</TableHead>
+                  <TableHead>Ends</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {promotionsList.map((promo) => (
+                  <TableRow key={promo.id}>
+                    <TableCell>
+                      <div className="font-medium text-gray-900">{promo.title}</div>
+                      {promo.description && (
+                        <div className="text-xs text-gray-400 truncate max-w-48">{promo.description}</div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className={TYPE_COLORS[promo.type] ?? ""}>
+                        {promo.type.replace("_", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className={SCOPE_COLORS[promo.scope] ?? ""}>
+                        {promo.scope.replace("_", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {promo.type === "FREE_DELIVERY"
+                        ? "Free delivery"
+                        : promo.type === "ADDITIONAL" && promo.minQuantity && promo.freeQuantity
+                        ? `Buy ${promo.minQuantity} get ${promo.freeQuantity} free`
+                        : promo.discountValue
+                        ? `${promo.discountValue}${promo.discountType === "PERCENTAGE" ? "%" : " RWF"}`
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-600">
+                      {promo.minCartValue ? `${Number(promo.minCartValue).toLocaleString()} RWF` : "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-500">{formatDate(promo.startsAt)}</TableCell>
+                    <TableCell className="text-sm text-gray-500">{formatDate(promo.endsAt)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between text-sm text-gray-500">
+              <span>{total} promotion{total !== 1 ? "s" : ""}</span>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" disabled={currentPage <= 1} onClick={() => applyFilters(currentPage - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span>{currentPage} / {totalPages}</span>
+                <Button variant="outline" size="icon" disabled={currentPage >= totalPages} onClick={() => applyFilters(currentPage + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* ── Create Sheet ── */}
