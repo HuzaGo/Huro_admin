@@ -56,38 +56,62 @@ export interface CreatePromotionPayload {
   endsAt: string;
 }
 
+export interface FetchPromotionsParams {
+  page?: number;
+  limit?: number;
+  scope?: PromotionScope | '';
+  isActive?: boolean;
+}
+
 interface PromotionState {
   promotionsList: Promotion[];
-  activePromotionsList: Promotion[];
+  total: number;
+  totalPages: number;
+  currentPage: number;
   isFetching: boolean;
-  isFetchingActive: boolean;
   isCreating: boolean;
   error: string | null;
-  activeError: string | null;
   createError: string | null;
   createSuccess: string | null;
 }
 
 const initialState: PromotionState = {
   promotionsList: [],
-  activePromotionsList: [],
+  total: 0,
+  totalPages: 1,
+  currentPage: 1,
   isFetching: false,
-  isFetchingActive: false,
   isCreating: false,
   error: null,
-  activeError: null,
   createError: null,
   createSuccess: null,
 };
 
-export const fetchActivePromotions = createAsyncThunk(
-  'promotions/fetchActive',
-  async (_, { rejectWithValue }) => {
+export const fetchPromotions = createAsyncThunk(
+  'promotions/fetch',
+  async (params: FetchPromotionsParams = {}, { getState, rejectWithValue }) => {
     try {
-      const response = await fetch('/api/v1/promotions/active');
+      const state: any = getState();
+      const token =
+        state.auth.token ||
+        (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+      if (!token) return rejectWithValue('Authentication token is missing.');
+
+      const qs = new URLSearchParams({
+        page: String(params.page ?? 1),
+        limit: String(params.limit ?? 20),
+      });
+      if (params.scope) qs.set('scope', params.scope);
+      if (params.isActive !== undefined) qs.set('isActive', String(params.isActive));
+
+      const response = await fetch(`/api/v1/promotions?${qs.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
       const data = await response.json();
       if (!response.ok) {
-        const msg = data.error || data.message || 'Failed to fetch active promotions';
+        const msg = data?.error?.message || data?.message || 'Failed to fetch promotions';
         return rejectWithValue(typeof msg === 'string' ? msg : JSON.stringify(msg));
       }
       return data;
@@ -148,18 +172,25 @@ const promotionSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchActivePromotions.pending, (state) => {
-        state.isFetchingActive = true;
-        state.activeError = null;
+      .addCase(fetchPromotions.pending, (state) => {
+        state.isFetching = true;
+        state.error = null;
       })
-      .addCase(fetchActivePromotions.fulfilled, (state, action) => {
-        state.isFetchingActive = false;
-        const list = action.payload?.data;
-        state.activePromotionsList = Array.isArray(list) ? list : [];
+      .addCase(fetchPromotions.fulfilled, (state, action) => {
+        state.isFetching = false;
+        const payload = action.payload?.data;
+        // Support both { data: [...], meta: {...} } and flat array
+        const items = Array.isArray(payload?.data) ? payload.data
+          : Array.isArray(payload) ? payload
+          : [];
+        state.promotionsList = items;
+        state.total = payload?.meta?.total ?? items.length;
+        state.currentPage = payload?.meta?.page ?? 1;
+        state.totalPages = payload?.meta?.totalPages ?? 1;
       })
-      .addCase(fetchActivePromotions.rejected, (state, action) => {
-        state.isFetchingActive = false;
-        state.activeError = action.payload as string;
+      .addCase(fetchPromotions.rejected, (state, action) => {
+        state.isFetching = false;
+        state.error = action.payload as string;
       })
       .addCase(createPromotion.pending, (state) => {
         state.isCreating = true;
@@ -171,7 +202,7 @@ const promotionSlice = createSlice({
         state.createSuccess = action.payload?.message || 'Promotion created successfully!';
         const promo = action.payload?.data ?? action.payload;
         if (promo?.id) {
-          state.activePromotionsList = [promo, ...state.activePromotionsList];
+          state.promotionsList = [promo, ...state.promotionsList];
         }
       })
       .addCase(createPromotion.rejected, (state, action) => {
