@@ -114,7 +114,7 @@ export const createPromotion = createAsyncThunk(
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ body: payload }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
