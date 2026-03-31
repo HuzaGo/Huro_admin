@@ -4,6 +4,18 @@ export type PromotionType = 'DISCOUNT' | 'ADDITIONAL' | 'FREE_DELIVERY' | 'CASHB
 export type PromotionScope = 'CART_WIDE' | 'CATEGORY' | 'SPECIFIC' | 'BUNDLE' | 'PRODUCT';
 export type DiscountType = 'PERCENTAGE' | 'FIXED';
 
+export interface PromotionProduct {
+  productId: string;
+  requiredQuantity: number;
+  isFreeItem: boolean;
+  product?: { name: string };
+}
+
+export interface PromotionCategoryGate {
+  categoryId: string;
+  requiredQuantity: number;
+}
+
 export interface Promotion {
   id: string;
   title: string;
@@ -12,10 +24,9 @@ export interface Promotion {
   type: PromotionType;
   scope: PromotionScope;
   categoryId?: string;
-  productIds?: string[];
-  discountType: DiscountType;
-  discountValue: number;
-  minCartValue: number;
+  discountType?: DiscountType;
+  discountValue?: number;
+  minCartValue?: number;
   minQuantity?: number | null;
   freeQuantity?: number | null;
   startsAt: string;
@@ -23,20 +34,22 @@ export interface Promotion {
   isActive?: boolean;
   createdAt?: string;
   category?: { id: string; name: string } | null;
-  products?: any[];
-  categoryGates?: any[];
+  products?: PromotionProduct[];
+  categoryGates?: PromotionCategoryGate[];
 }
 
 export interface CreatePromotionPayload {
   title: string;
   description?: string;
-  type: PromotionType;
+  bannerUrl?: string;
+  type?: PromotionType;
   scope: PromotionScope;
   categoryId?: string;
-  productIds?: string[];
-  discountType: DiscountType;
-  discountValue: number;
-  minCartValue: number;
+  products?: PromotionProduct[];
+  categoryGates?: PromotionCategoryGate[];
+  discountType?: DiscountType;
+  discountValue?: number;
+  minCartValue?: number;
   minQuantity?: number;
   freeQuantity?: number;
   startsAt: string;
@@ -67,49 +80,16 @@ const initialState: PromotionState = {
   createSuccess: null,
 };
 
-export const fetchPromotions = createAsyncThunk(
-  'promotions/fetch',
-  async (_, { getState, rejectWithValue }) => {
-    try {
-      const state: any = getState();
-      const token =
-        state.auth.token ||
-        (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
-
-      if (!token) return rejectWithValue('Authentication token is missing.');
-
-      const response = await fetch('/api/v1/promotions', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        const msg = data.error || data.message || 'Failed to fetch promotions';
-        return rejectWithValue(typeof msg === 'string' ? msg : JSON.stringify(msg));
-      }
-
-      return data;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'An error occurred');
-    }
-  }
-);
-
-// No auth required — returns a flat array: { data: [...] }
 export const fetchActivePromotions = createAsyncThunk(
   'promotions/fetchActive',
   async (_, { rejectWithValue }) => {
     try {
       const response = await fetch('/api/v1/promotions/active');
-
       const data = await response.json();
-
       if (!response.ok) {
         const msg = data.error || data.message || 'Failed to fetch active promotions';
         return rejectWithValue(typeof msg === 'string' ? msg : JSON.stringify(msg));
       }
-
       return data;
     } catch (error: any) {
       return rejectWithValue(error.message || 'An error occurred');
@@ -134,19 +114,19 @@ export const createPromotion = createAsyncThunk(
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ body: payload }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        if (Array.isArray(data.details) && data.details.length > 0) {
-          const detail = data.details
+        if (Array.isArray(data?.error?.details) && data.error.details.length > 0) {
+          const detail = data.error.details
             .map((d: any) => `${d.field}: ${d.message}`)
             .join(' | ');
           return rejectWithValue(detail);
         }
-        const msg = data.error || data.message || 'Failed to create promotion';
+        const msg = data?.error?.message || data?.message || 'Failed to create promotion';
         return rejectWithValue(typeof msg === 'string' ? msg : JSON.stringify(msg));
       }
 
@@ -174,30 +154,12 @@ const promotionSlice = createSlice({
       })
       .addCase(fetchActivePromotions.fulfilled, (state, action) => {
         state.isFetchingActive = false;
-        // Response: { success: true, data: [...] }
         const list = action.payload?.data;
         state.activePromotionsList = Array.isArray(list) ? list : [];
       })
       .addCase(fetchActivePromotions.rejected, (state, action) => {
         state.isFetchingActive = false;
         state.activeError = action.payload as string;
-      })
-      .addCase(fetchPromotions.pending, (state) => {
-        state.isFetching = true;
-        state.error = null;
-      })
-      .addCase(fetchPromotions.fulfilled, (state, action) => {
-        state.isFetching = false;
-        const payload = action.payload;
-        state.promotionsList = Array.isArray(payload?.data)
-          ? payload.data
-          : Array.isArray(payload)
-          ? payload
-          : [];
-      })
-      .addCase(fetchPromotions.rejected, (state, action) => {
-        state.isFetching = false;
-        state.error = action.payload as string;
       })
       .addCase(createPromotion.pending, (state) => {
         state.isCreating = true;
