@@ -5,8 +5,11 @@ import { Tag, Plus, X, Search, Trash2, ChevronLeft, ChevronRight } from "lucide-
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   fetchPromotions,
+  fetchPromotionById,
   createPromotion,
+  deletePromotion,
   clearPromotionMessages,
+  clearSelectedPromotion,
   PromotionScope,
   PromotionType,
   DiscountType,
@@ -113,7 +116,28 @@ export default function PromotionsPage() {
   const { categories } = useAppSelector((s) => s.categories);
   const { products } = useAppSelector((s) => s.products);
 
+  const { selectedPromotion, isFetchingOne, fetchOneError, isDeleting, deleteError } = useAppSelector((s) => s.promotions);
+
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const openDetail = (id: string) => {
+    dispatch(fetchPromotionById(id));
+    setIsDetailOpen(true);
+  };
+
+  const closeDetail = () => {
+    setIsDetailOpen(false);
+    setConfirmDelete(false);
+    dispatch(clearSelectedPromotion());
+  };
+
+  const handleDelete = async () => {
+    if (!selectedPromotion) return;
+    const result = await dispatch(deletePromotion(selectedPromotion.id));
+    if (deletePromotion.fulfilled.match(result)) closeDetail();
+  };
   const [form, setForm] = useState(emptyForm);
   const [productSearch, setProductSearch] = useState("");
   const [catGateSearch, setCatGateSearch] = useState("");
@@ -318,6 +342,7 @@ export default function PromotionsPage() {
               <TableHeader>
                 <TableRow className="bg-gray-50">
                   <TableHead>Title</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Scope</TableHead>
                   <TableHead>Discount</TableHead>
@@ -328,11 +353,22 @@ export default function PromotionsPage() {
               </TableHeader>
               <TableBody>
                 {promotionsList.map((promo) => (
-                  <TableRow key={promo.id}>
+                  <TableRow
+                    key={promo.id}
+                    className={`cursor-pointer transition-colors ${promo.isActive === false ? "bg-gray-50/60 opacity-60 hover:opacity-80" : "hover:bg-gray-50"}`}
+                    onClick={() => openDetail(promo.id)}
+                  >
                     <TableCell>
-                      <div className="font-medium text-gray-900">{promo.title}</div>
+                      <div className={`font-medium ${promo.isActive === false ? "text-gray-400" : "text-gray-900"}`}>{promo.title}</div>
                       {promo.description && (
                         <div className="text-xs text-gray-400 truncate max-w-48">{promo.description}</div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {promo.isActive === false ? (
+                        <Badge variant="secondary" className="bg-gray-100 text-gray-400">Inactive</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="bg-green-50 text-green-700">Active</Badge>
                       )}
                     </TableCell>
                     <TableCell>
@@ -381,6 +417,174 @@ export default function PromotionsPage() {
           )}
         </>
       )}
+
+      {/* ── Detail Sheet ── */}
+      <Sheet open={isDetailOpen} onOpenChange={(open) => { if (!open) closeDetail(); }}>
+        <SheetContent className="sm:max-w-lg w-full overflow-y-auto px-6 py-8">
+          <SheetHeader>
+            <SheetTitle>Promotion Details</SheetTitle>
+            <SheetDescription>Full details for this promotion.</SheetDescription>
+          </SheetHeader>
+
+          {isFetchingOne && (
+            <div className="mt-8 space-y-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-8 rounded-lg bg-gray-100 animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {fetchOneError && (
+            <div className="mt-6 p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md">{fetchOneError}</div>
+          )}
+
+          {!isFetchingOne && selectedPromotion && (
+            <div className="mt-6 space-y-5 text-sm">
+              {/* Status badges */}
+              <div className="flex gap-2 flex-wrap">
+                <Badge variant="secondary" className={TYPE_COLORS[selectedPromotion.type] ?? ""}>
+                  {selectedPromotion.type.replace("_", " ")}
+                </Badge>
+                <Badge variant="secondary" className={SCOPE_COLORS[selectedPromotion.scope] ?? ""}>
+                  {selectedPromotion.scope.replace("_", " ")}
+                </Badge>
+                <Badge variant="secondary" className={selectedPromotion.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}>
+                  {selectedPromotion.isActive ? "Active" : "Inactive"}
+                </Badge>
+              </div>
+
+              {/* Title / Description */}
+              <div>
+                <p className="font-semibold text-gray-900 text-base">{selectedPromotion.title}</p>
+                {selectedPromotion.description && (
+                  <p className="text-gray-500 mt-1">{selectedPromotion.description}</p>
+                )}
+              </div>
+
+              {selectedPromotion.bannerUrl && (
+                <img src={selectedPromotion.bannerUrl} alt="Banner" className="w-full rounded-lg object-cover max-h-40" />
+              )}
+
+              {/* Key fields */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                {selectedPromotion.discountValue != null && (
+                  <>
+                    <span className="text-gray-500">Discount</span>
+                    <span className="font-medium text-gray-800">
+                      {selectedPromotion.discountValue}{selectedPromotion.discountType === "PERCENTAGE" ? "%" : " RWF"}
+                    </span>
+                  </>
+                )}
+                {selectedPromotion.minCartValue != null && (
+                  <>
+                    <span className="text-gray-500">Min Cart</span>
+                    <span className="font-medium text-gray-800">{Number(selectedPromotion.minCartValue).toLocaleString()} RWF</span>
+                  </>
+                )}
+                {selectedPromotion.minQuantity != null && (
+                  <>
+                    <span className="text-gray-500">Buy Qty</span>
+                    <span className="font-medium text-gray-800">{selectedPromotion.minQuantity}</span>
+                  </>
+                )}
+                {selectedPromotion.freeQuantity != null && (
+                  <>
+                    <span className="text-gray-500">Free Qty</span>
+                    <span className="font-medium text-gray-800">{selectedPromotion.freeQuantity}</span>
+                  </>
+                )}
+                <span className="text-gray-500">Starts</span>
+                <span className="font-medium text-gray-800">{formatDate(selectedPromotion.startsAt)}</span>
+                <span className="text-gray-500">Ends</span>
+                <span className="font-medium text-gray-800">{formatDate(selectedPromotion.endsAt)}</span>
+                {selectedPromotion.createdAt && (
+                  <>
+                    <span className="text-gray-500">Created</span>
+                    <span className="font-medium text-gray-800">{formatDate(selectedPromotion.createdAt)}</span>
+                  </>
+                )}
+              </div>
+
+              {/* Category */}
+              {selectedPromotion.category && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Category</p>
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-medium">
+                    {selectedPromotion.category.name}
+                  </span>
+                </div>
+              )}
+
+              {/* Category Gates */}
+              {selectedPromotion.categoryGates && selectedPromotion.categoryGates.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Category Gates</p>
+                  <div className="space-y-1.5">
+                    {selectedPromotion.categoryGates.map((gate) => (
+                      <div key={gate.categoryId} className="flex items-center justify-between px-3 py-2 rounded-lg bg-teal-50 border border-teal-100">
+                        <span className="font-medium text-teal-800">{gate.category?.name ?? gate.categoryId}</span>
+                        <span className="text-xs text-teal-600">Qty: {gate.requiredQuantity}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Products */}
+              {selectedPromotion.products && selectedPromotion.products.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Products</p>
+                  <div className="space-y-1.5">
+                    {selectedPromotion.products.map((pp) => (
+                      <div key={pp.productId} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-50 border border-gray-100">
+                        {pp.product?.imageUrls?.[0] && (
+                          <img src={pp.product.imageUrls[0]} alt={pp.product.name} className="h-8 w-8 rounded object-cover shrink-0" />
+                        )}
+                        <span className="flex-1 font-medium text-gray-800 truncate">{pp.product?.name ?? pp.productId}</span>
+                        <span className="text-xs text-gray-500 shrink-0">Qty: {pp.requiredQuantity}</span>
+                        {pp.isFreeItem && (
+                          <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200 shrink-0">Free</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Delete */}
+              {deleteError && (
+                <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md">{deleteError}</div>
+              )}
+              <div className="pt-2 border-t border-gray-100">
+                {!confirmDelete ? (
+                  <Button
+                    variant="outline"
+                    className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={() => setConfirmDelete(true)}
+                    disabled={isDeleting}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" /> End Promotion
+                  </Button>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-red-600 text-center">
+                      This permanently ends the promotion and cannot be undone.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1" onClick={() => setConfirmDelete(false)} disabled={isDeleting}>
+                        Cancel
+                      </Button>
+                      <Button variant="destructive" className="flex-1" onClick={handleDelete} disabled={isDeleting}>
+                        {isDeleting ? "Deleting..." : "Confirm Delete"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* ── Create Sheet ── */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>

@@ -8,12 +8,13 @@ export interface PromotionProduct {
   productId: string;
   requiredQuantity: number;
   isFreeItem: boolean;
-  product?: { name: string };
+  product?: { id: string; name: string; imageUrls?: string[] };
 }
 
 export interface PromotionCategoryGate {
   categoryId: string;
   requiredQuantity: number;
+  category?: { id: string; name: string };
 }
 
 export interface Promotion {
@@ -33,6 +34,7 @@ export interface Promotion {
   endsAt: string;
   isActive?: boolean;
   createdAt?: string;
+  updatedAt?: string;
   category?: { id: string; name: string } | null;
   products?: PromotionProduct[];
   categoryGates?: PromotionCategoryGate[];
@@ -73,6 +75,11 @@ interface PromotionState {
   error: string | null;
   createError: string | null;
   createSuccess: string | null;
+  selectedPromotion: Promotion | null;
+  isFetchingOne: boolean;
+  fetchOneError: string | null;
+  isDeleting: boolean;
+  deleteError: string | null;
 }
 
 const initialState: PromotionState = {
@@ -85,6 +92,11 @@ const initialState: PromotionState = {
   error: null,
   createError: null,
   createSuccess: null,
+  selectedPromotion: null,
+  isFetchingOne: false,
+  fetchOneError: null,
+  isDeleting: false,
+  deleteError: null,
 };
 
 export const fetchPromotions = createAsyncThunk(
@@ -161,6 +173,61 @@ export const createPromotion = createAsyncThunk(
   }
 );
 
+export const fetchPromotionById = createAsyncThunk(
+  'promotions/fetchById',
+  async (promotionId: string, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token =
+        state.auth.token ||
+        (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+      if (!token) return rejectWithValue('Authentication token is missing.');
+
+      const response = await fetch(`/api/v1/promotions/${promotionId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        const msg = data?.error?.message || data?.message || 'Failed to fetch promotion';
+        return rejectWithValue(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      }
+      return data;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred');
+    }
+  }
+);
+
+export const deletePromotion = createAsyncThunk(
+  'promotions/delete',
+  async (promotionId: string, { getState, rejectWithValue }) => {
+    try {
+      const state: any = getState();
+      const token =
+        state.auth.token ||
+        (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+      if (!token) return rejectWithValue('Authentication token is missing.');
+
+      const response = await fetch(`/api/v1/promotions/${promotionId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        const msg = data?.error?.message || data?.message || 'Failed to delete promotion';
+        return rejectWithValue(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      }
+      return { promotionId, message: data?.message };
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'An error occurred');
+    }
+  }
+);
+
 const promotionSlice = createSlice({
   name: 'promotions',
   initialState,
@@ -168,6 +235,10 @@ const promotionSlice = createSlice({
     clearPromotionMessages: (state) => {
       state.createError = null;
       state.createSuccess = null;
+    },
+    clearSelectedPromotion: (state) => {
+      state.selectedPromotion = null;
+      state.fetchOneError = null;
     },
   },
   extraReducers: (builder) => {
@@ -208,9 +279,37 @@ const promotionSlice = createSlice({
       .addCase(createPromotion.rejected, (state, action) => {
         state.isCreating = false;
         state.createError = action.payload as string;
+      })
+      .addCase(fetchPromotionById.pending, (state) => {
+        state.isFetchingOne = true;
+        state.fetchOneError = null;
+        state.selectedPromotion = null;
+      })
+      .addCase(fetchPromotionById.fulfilled, (state, action) => {
+        state.isFetchingOne = false;
+        state.selectedPromotion = action.payload?.data ?? action.payload;
+      })
+      .addCase(fetchPromotionById.rejected, (state, action) => {
+        state.isFetchingOne = false;
+        state.fetchOneError = action.payload as string;
+      })
+      .addCase(deletePromotion.pending, (state) => {
+        state.isDeleting = true;
+        state.deleteError = null;
+      })
+      .addCase(deletePromotion.fulfilled, (state, action) => {
+        state.isDeleting = false;
+        state.promotionsList = state.promotionsList.filter(
+          (p) => p.id !== action.payload.promotionId
+        );
+        state.selectedPromotion = null;
+      })
+      .addCase(deletePromotion.rejected, (state, action) => {
+        state.isDeleting = false;
+        state.deleteError = action.payload as string;
       });
   },
 });
 
-export const { clearPromotionMessages } = promotionSlice.actions;
+export const { clearPromotionMessages, clearSelectedPromotion } = promotionSlice.actions;
 export default promotionSlice.reducer;
