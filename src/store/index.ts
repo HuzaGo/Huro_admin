@@ -11,6 +11,7 @@ import orderReducer from './slices/orderSlice'
 import campusReducer from './slices/campusSlice'
 import promotionReducer from './slices/promotionSlice'
 import marketplaceReducer from './slices/marketplaceSlice'
+import ledgerReducer from './slices/ledgerSlice'
 
 export const store = configureStore({
   reducer: {
@@ -26,6 +27,7 @@ export const store = configureStore({
     campuses: campusReducer,
     promotions: promotionReducer,
     marketplace: marketplaceReducer,
+    ledger: ledgerReducer,
   },
 })
 

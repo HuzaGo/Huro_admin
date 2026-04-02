@@ -16,6 +16,7 @@ import {
   School,
   LogOut,
   Percent,
+  BookOpen,
 } from "lucide-react";
 import {
   Sidebar,
@@ -92,6 +93,12 @@ const items = [
     title: "Promotions",
     url: "/promotions",
     icon: Percent,
+    isActive: false,
+  },
+  {
+    title: "Ledger",
+    url: "/ledger",
+    icon: BookOpen,
     isActive: false,
   },
   {
